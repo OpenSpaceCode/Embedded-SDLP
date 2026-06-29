@@ -5,6 +5,6 @@ typedef struct
 {
     int passed;
     int total;
-} pus_test_result_t;
+} test_result_t;
 
 #endif /* TEST_RUNNERS_H */
