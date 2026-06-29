@@ -105,19 +105,39 @@ int sdlp_tm_create_frame(sdlp_tm_frame_t *frame, uint16_t spacecraft_id,
 
     memcpy(frame->data, data, data_length);
     frame->data_length = data_length;
-    
+
     return SDLP_SUCCESS;
 }
 
-int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame, uint8_t *buffer, 
+int sdlp_tm_set_secondary_header(sdlp_tm_frame_t *frame, const uint8_t *data, uint8_t length) {
+    if (!frame || !data || length == 0u || length > TM_SECONDARY_HEADER_MAX_DATA) {
+        return SDLP_ERROR_INVALID_PARAM;
+    }
+
+    frame->header.transfer_frame_data_field_status.secondary_header_flag = 1;
+    frame->secondary_header.version = 0; /* CCSDS 132.0-B-3, 4.1.3.2.2.2 */
+    frame->secondary_header.length = length;
+    memcpy(frame->secondary_header.data, data, length);
+
+    return SDLP_SUCCESS;
+}
+
+int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame, uint8_t *buffer,
                           size_t buffer_size, size_t *encoded_size) {
     if (!frame || !buffer || !encoded_size) {
         return SDLP_ERROR_INVALID_PARAM;
     }
     
-    size_t required_size = TM_PRIMARY_HEADER_SIZE + frame->data_length + 
+    int secondary_header_present =
+        frame->header.transfer_frame_data_field_status.secondary_header_flag ? 1 : 0;
+
+    size_t required_size = TM_PRIMARY_HEADER_SIZE + frame->data_length +
                            TM_FRAME_ERROR_CONTROL_SIZE;
-    
+
+    if (secondary_header_present) {
+        required_size += TM_SECONDARY_HEADER_ID_SIZE + frame->secondary_header.length;
+    }
+
     if (buffer_size < required_size) {
         return SDLP_ERROR_BUFFER_TOO_SMALL;
     }
@@ -136,7 +156,16 @@ int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame, uint8_t *buffer,
         sdlp_tm_pack_data_field_status(&frame->header.transfer_frame_data_field_status);
     buffer[offset++] = (uint8_t)((data_field_status >> 8) & 0xffu);
     buffer[offset++] = (uint8_t)(data_field_status & 0xffu);
-    
+
+    /* Transfer Frame Secondary Header (CCSDS 132.0-B-3, 4.1.3): Identification Field
+     * (Version '00' | Length = total size - 1 = Data Field length) then the Data Field. */
+    if (secondary_header_present) {
+        buffer[offset++] = (uint8_t)(((frame->secondary_header.version & 0x03u) << 6) |
+                           (frame->secondary_header.length & 0x3fu));
+        memcpy(&buffer[offset], frame->secondary_header.data, frame->secondary_header.length);
+        offset += frame->secondary_header.length;
+    }
+
     memcpy(&buffer[offset], frame->data, frame->data_length);
     offset += frame->data_length;
 
@@ -175,9 +204,39 @@ int sdlp_tm_decode_frame(const uint8_t *buffer, size_t buffer_size,
     sdlp_tm_unpack_data_field_status(data_field_status,
                                      &frame->header.transfer_frame_data_field_status);
     offset += 2;
-    
-    frame->data_length = (uint16_t)(buffer_size - TM_PRIMARY_HEADER_SIZE - TM_FRAME_ERROR_CONTROL_SIZE);
-    
+
+    /* Transfer Frame Secondary Header (CCSDS 132.0-B-3, 4.1.3), present when the
+     * Secondary Header Flag is set. Its size is signaled in the Identification Field. */
+    size_t secondary_header_size = 0;
+    if (frame->header.transfer_frame_data_field_status.secondary_header_flag) {
+        uint8_t sh_length;
+
+        /* Need the Identification Field plus at least one Data Field octet (4.1.3.1.3). */
+        if (buffer_size < TM_PRIMARY_HEADER_SIZE + TM_SECONDARY_HEADER_ID_SIZE + 1u +
+                          TM_FRAME_ERROR_CONTROL_SIZE) {
+            return SDLP_ERROR_INVALID_FRAME;
+        }
+
+        frame->secondary_header.version = (uint8_t)((buffer[offset] >> 6) & 0x03u);
+        sh_length = (uint8_t)(buffer[offset] & 0x3fu); /* total size - 1 = Data Field length */
+        if (sh_length == 0u) {
+            return SDLP_ERROR_INVALID_FRAME;
+        }
+        secondary_header_size = TM_SECONDARY_HEADER_ID_SIZE + sh_length;
+
+        if (buffer_size < TM_PRIMARY_HEADER_SIZE + secondary_header_size +
+                          TM_FRAME_ERROR_CONTROL_SIZE) {
+            return SDLP_ERROR_INVALID_FRAME;
+        }
+
+        frame->secondary_header.length = sh_length;
+        memcpy(frame->secondary_header.data, &buffer[offset + TM_SECONDARY_HEADER_ID_SIZE], sh_length);
+        offset += secondary_header_size;
+    }
+
+    frame->data_length = (uint16_t)(buffer_size - TM_PRIMARY_HEADER_SIZE - secondary_header_size -
+                         TM_FRAME_ERROR_CONTROL_SIZE);
+
     if (frame->data_length > TM_MAX_DATA_SIZE) {
         return SDLP_ERROR_INVALID_FRAME;
     }

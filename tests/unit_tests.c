@@ -147,6 +147,56 @@ static int test_tm_frame_counts_per_channel(void) {
 	return 0;
 }
 
+static int test_tm_secondary_header_roundtrip(void) {
+	sdlp_tm_frame_t frame;
+	sdlp_tm_frame_t decoded;
+	const uint8_t payload[] = {0x10, 0x20, 0x30};
+	const uint8_t sh_data[] = {0xAA, 0xBB, 0xCC, 0xDD};
+	uint8_t encoded[TM_PRIMARY_HEADER_SIZE + TM_SECONDARY_HEADER_ID_SIZE +
+	                TM_SECONDARY_HEADER_MAX_DATA + TM_MAX_DATA_SIZE + TM_FRAME_ERROR_CONTROL_SIZE];
+	size_t encoded_size = 0;
+
+	ASSERT_EQ_INT(SDLP_SUCCESS,
+								sdlp_tm_create_frame(&frame, 0x100, 1, payload, (uint16_t)sizeof(payload)));
+	ASSERT_EQ_INT(SDLP_SUCCESS,
+								sdlp_tm_set_secondary_header(&frame, sh_data, (uint8_t)sizeof(sh_data)));
+	ASSERT_EQ_INT(1, frame.header.transfer_frame_data_field_status.secondary_header_flag);
+
+	ASSERT_EQ_INT(SDLP_SUCCESS,
+								sdlp_tm_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
+	/* primary(6) + ID(1) + secondary data(4) + payload(3) + FECF(2) */
+	ASSERT_EQ_INT(TM_PRIMARY_HEADER_SIZE + TM_SECONDARY_HEADER_ID_SIZE + (int)sizeof(sh_data) +
+								(int)sizeof(payload) + TM_FRAME_ERROR_CONTROL_SIZE,
+								(int)encoded_size);
+
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_decode_frame(encoded, encoded_size, &decoded));
+	ASSERT_EQ_INT(1, decoded.header.transfer_frame_data_field_status.secondary_header_flag);
+	ASSERT_EQ_INT((int)sizeof(sh_data), decoded.secondary_header.length);
+	ASSERT_EQ_MEM(sh_data, decoded.secondary_header.data, sizeof(sh_data));
+	/* The Data Field must be recovered intact after the Secondary Header. */
+	ASSERT_EQ_INT((int)sizeof(payload), decoded.data_length);
+	ASSERT_EQ_MEM(payload, decoded.data, sizeof(payload));
+
+	return 0;
+}
+
+static int test_tm_set_secondary_header_invalid(void) {
+	sdlp_tm_frame_t frame;
+	const uint8_t payload[1] = {0x01};
+	const uint8_t sh_data[1] = {0xFF};
+
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_create_frame(&frame, 1, 0, payload, 1));
+	ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tm_set_secondary_header(NULL, sh_data, 1));
+	ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tm_set_secondary_header(&frame, NULL, 1));
+	ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tm_set_secondary_header(&frame, sh_data, 0));
+	ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+								sdlp_tm_set_secondary_header(&frame, sh_data, TM_SECONDARY_HEADER_MAX_DATA + 1));
+	/* A rejected call must leave the Secondary Header Flag clear. */
+	ASSERT_EQ_INT(0, frame.header.transfer_frame_data_field_status.secondary_header_flag);
+
+	return 0;
+}
+
 static int test_tc_create_frame_invalid_params(void) {
 	sdlp_tc_frame_t frame;
 	uint8_t payload[1] = {0x55};
@@ -259,6 +309,8 @@ int main(void) {
 	RUN_TEST(test_tm_encode_buffer_too_small);
 	RUN_TEST(test_tm_fecf_passthrough);
 	RUN_TEST(test_tm_frame_counts_per_channel);
+	RUN_TEST(test_tm_secondary_header_roundtrip);
+	RUN_TEST(test_tm_set_secondary_header_invalid);
 	RUN_TEST(test_tc_create_frame_invalid_params);
 	RUN_TEST(test_tc_encode_decode_roundtrip);
 	RUN_TEST(test_tc_encode_buffer_too_small);
