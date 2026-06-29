@@ -5,7 +5,14 @@
 
 #define TC_PRIMARY_HEADER_SIZE 5
 #define TC_FRAME_ERROR_CONTROL_SIZE 2
-#define TC_MAX_DATA_SIZE 1024
+
+/* CCSDS 232.0-B-4, 4.1.2.7.2: the whole Transfer Frame is at most 1024 octets. */
+#define TC_MAX_FRAME_SIZE 1024
+
+/* Maximum Transfer Frame Data Field: the frame minus the primary header and the
+ * Frame Error Control Field (4.1.3.1.2). When a Segment Header is present it consumes
+ * one further octet of the data field (enforced in sdlp_tc_create_frame). */
+#define TC_MAX_DATA_SIZE (TC_MAX_FRAME_SIZE - TC_PRIMARY_HEADER_SIZE - TC_FRAME_ERROR_CONTROL_SIZE)
 
 #ifdef TC_SEGMENT_HEADER_ENABLED
 

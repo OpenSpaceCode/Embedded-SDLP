@@ -7,6 +7,23 @@
 #define TM_FRAME_ERROR_CONTROL_SIZE 2
 #define TM_MAX_DATA_SIZE 1024
 
+/* Transfer Frame Data Field Status sub-field values (CCSDS 132.0-B-3, 4.1.2.7). */
+#define TM_SEGMENT_LENGTH_ID_NO_SEGMENTATION 0x03u   /* '11'; mandatory when Sync Flag = 0 (4.1.2.7.5.2) */
+#define TM_FIRST_HEADER_POINTER_NO_PACKET    0x07ffu /* no Packet starts in the Data Field (4.1.2.7.6.4) */
+#define TM_FIRST_HEADER_POINTER_ONLY_IDLE    0x07feu /* Only Idle Data (OID) Transfer Frame (4.1.2.7.6.5) */
+
+/* Transfer Frame Data Field Status (2 octets, CCSDS 132.0-B-3, 4.1.2.7).
+ * Wire layout, most significant bit first:
+ *   secondary header flag (1) | synchronization flag (1) | packet order flag (1) |
+ *   segment length identifier (2) | first header pointer (11). */
+typedef struct {
+    uint8_t secondary_header_flag; /* presence of the Transfer Frame Secondary Header */
+    uint8_t sync_flag;             /* 0 = Packets/Idle Data, 1 = VCA_SDU */
+    uint8_t packet_order_flag;     /* reserved ('0') when sync_flag = 0 */
+    uint8_t segment_length_id;     /* 2 bits; '11' when sync_flag = 0 */
+    uint16_t first_header_pointer; /* 11 bits; offset of the first Packet or a special value */
+} sdlp_tm_data_field_status_t;
+
 typedef struct {
     uint16_t transfer_frame_version : 2;
     uint16_t spacecraft_id : 10;
@@ -14,7 +31,7 @@ typedef struct {
     uint16_t ocf_flag : 1;
     uint8_t master_channel_frame_count;
     uint8_t virtual_channel_frame_count;
-    uint16_t transfer_frame_data_field_status;
+    sdlp_tm_data_field_status_t transfer_frame_data_field_status;
 } sdlp_tm_header_t;
 
 typedef struct {
@@ -24,8 +41,15 @@ typedef struct {
     uint16_t fecf;
 } sdlp_tm_frame_t;
 
-int sdlp_tm_create_frame(sdlp_tm_frame_t *frame, uint16_t spacecraft_id, 
-                          uint8_t virtual_channel_id, const uint8_t *data, 
+/* Pack the Transfer Frame Data Field Status into its 2-octet wire value
+ * (CCSDS 132.0-B-3, 4.1.2.7). */
+uint16_t sdlp_tm_pack_data_field_status(const sdlp_tm_data_field_status_t *status);
+
+/* Parse a 2-octet Transfer Frame Data Field Status into its sub-fields. */
+void sdlp_tm_unpack_data_field_status(uint16_t raw, sdlp_tm_data_field_status_t *status);
+
+int sdlp_tm_create_frame(sdlp_tm_frame_t *frame, uint16_t spacecraft_id,
+                          uint8_t virtual_channel_id, const uint8_t *data,
                           uint16_t data_length);
 
 int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame, uint8_t *buffer, 

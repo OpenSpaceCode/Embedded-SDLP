@@ -4,21 +4,36 @@
 int sdlp_tc_create_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id, 
                           uint8_t virtual_channel_id, uint8_t frame_seq_num,
                           const uint8_t *data, uint16_t data_length) {
-    if (!frame || !data || data_length > TC_MAX_DATA_SIZE) {
+    /* A Type-D Frame Data Unit carries a Segment Header (when configured), which
+     * consumes one octet of the Data Field budget (CCSDS 232.0-B-4, 4.1.3.2.1). */
+    size_t max_data = TC_MAX_DATA_SIZE;
+#ifdef TC_SEGMENT_HEADER_ENABLED
+    max_data -= TC_SEGMENT_HEADER_SIZE;
+#endif
+
+    if (!frame || !data || data_length == 0u || data_length > max_data) {
         return SDLP_ERROR_INVALID_PARAM;
     }
 
     memset(frame, 0, sizeof(sdlp_tc_frame_t));
-    
+
     frame->header.transfer_frame_version = SDLP_VERSION;
     frame->header.bypass_flag = 0;
     frame->header.control_command_flag = 0;
     frame->header.reserved = 0;
     frame->header.spacecraft_id = (uint16_t)(spacecraft_id & 0x3ffu);
     frame->header.virtual_channel_id = (uint8_t)(virtual_channel_id & 0x3fu);
-    frame->header.frame_length = (uint16_t)(data_length - 1u);
+
+    /* Frame Length is the total octet count of the whole Transfer Frame minus one
+     * (CCSDS 232.0-B-4, 4.1.2.7.2). sdlp_tc_encode_frame recomputes this from the
+     * bytes it actually emits; it is set here so the struct is self-consistent. */
+    size_t frame_octets = TC_PRIMARY_HEADER_SIZE + data_length + TC_FRAME_ERROR_CONTROL_SIZE;
+#ifdef TC_SEGMENT_HEADER_ENABLED
+    frame_octets += TC_SEGMENT_HEADER_SIZE;
+#endif
+    frame->header.frame_length = (uint16_t)(frame_octets - 1u);
     frame->header.frame_sequence_number = frame_seq_num;
-    
+
     memcpy(frame->data, data, data_length);
     frame->data_length = data_length;
     
@@ -43,7 +58,11 @@ int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame, uint8_t *buffer,
     if (buffer_size < required_size) {
         return SDLP_ERROR_BUFFER_TOO_SMALL;
     }
-    
+
+    /* Frame Length = total octets in the emitted Transfer Frame - 1 (CCSDS 232.0-B-4,
+     * 4.1.2.7.2), derived from the actual encoded size so it always matches the wire. */
+    uint16_t frame_length = (uint16_t)(required_size - 1u);
+
     size_t offset = 0;
     
     buffer[offset++] = (uint8_t)((frame->header.transfer_frame_version << 6) | 
@@ -53,8 +72,8 @@ int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame, uint8_t *buffer,
                        ((frame->header.spacecraft_id >> 8) & 0x03u));
     buffer[offset++] = (uint8_t)(frame->header.spacecraft_id & 0xffu);
     buffer[offset++] = (uint8_t)(((frame->header.virtual_channel_id & 0x3fu) << 2) |
-                       ((frame->header.frame_length >> 8) & 0x03u));
-    buffer[offset++] = (uint8_t)(frame->header.frame_length & 0xffu);
+                       ((frame_length >> 8) & 0x03u));
+    buffer[offset++] = (uint8_t)(frame_length & 0xffu);
     buffer[offset++] = frame->header.frame_sequence_number;
 
 #ifdef TC_SEGMENT_HEADER_ENABLED
@@ -99,6 +118,12 @@ int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size,
                                  (uint16_t)buffer[offset + 1]);
     offset += 2;
     frame->header.frame_sequence_number = buffer[offset++];
+
+    /* Frame Validation: the Frame Length must equal the actual octet count minus one
+     * (CCSDS 232.0-B-4, 4.1.2.7.2). */
+    if ((size_t)frame->header.frame_length + 1u != buffer_size) {
+        return SDLP_ERROR_INVALID_FRAME;
+    }
 
 #ifdef TC_SEGMENT_HEADER_ENABLED
     if (!frame->header.control_command_flag) {

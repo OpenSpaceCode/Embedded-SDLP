@@ -44,6 +44,36 @@ static int test_tm_encode_decode_roundtrip(void) {
 								decoded.header.master_channel_frame_count);
 	ASSERT_EQ_INT((int)sizeof(payload), decoded.data_length);
 	ASSERT_EQ_MEM(payload, decoded.data, sizeof(payload));
+	/* The default Data Field Status round-trips: Sync Flag = 0 with a '11' Segment
+	 * Length Identifier (CCSDS 132.0-B-3, 4.1.2.7.5.2). */
+	ASSERT_EQ_INT(0, decoded.header.transfer_frame_data_field_status.sync_flag);
+	ASSERT_EQ_INT(TM_SEGMENT_LENGTH_ID_NO_SEGMENTATION,
+								decoded.header.transfer_frame_data_field_status.segment_length_id);
+
+	return 0;
+}
+
+static int test_tm_data_field_status_codec(void) {
+	sdlp_tm_data_field_status_t status = {0};
+	sdlp_tm_data_field_status_t parsed = {0};
+	uint16_t raw;
+
+	status.secondary_header_flag = 1;
+	status.sync_flag = 0;
+	status.packet_order_flag = 0;
+	status.segment_length_id = TM_SEGMENT_LENGTH_ID_NO_SEGMENTATION;
+	status.first_header_pointer = 0x123;
+
+	/* MSB-first layout: shf<<15 | slid<<11 | fhp = 0x8000 | 0x1800 | 0x123. */
+	raw = sdlp_tm_pack_data_field_status(&status);
+	ASSERT_EQ_INT(0x9923, raw);
+
+	sdlp_tm_unpack_data_field_status(raw, &parsed);
+	ASSERT_EQ_INT(1, parsed.secondary_header_flag);
+	ASSERT_EQ_INT(0, parsed.sync_flag);
+	ASSERT_EQ_INT(0, parsed.packet_order_flag);
+	ASSERT_EQ_INT(TM_SEGMENT_LENGTH_ID_NO_SEGMENTATION, parsed.segment_length_id);
+	ASSERT_EQ_INT(0x123, parsed.first_header_pointer);
 
 	return 0;
 }
@@ -97,6 +127,8 @@ static int test_tc_create_frame_invalid_params(void) {
 								sdlp_tc_create_frame(&frame, 1, 1, 1, NULL, 1));
 	ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
 								sdlp_tc_create_frame(&frame, 1, 1, 1, payload, TC_MAX_DATA_SIZE + 1));
+	ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+								sdlp_tc_create_frame(&frame, 1, 1, 1, payload, 0));
 
 	return 0;
 }
@@ -121,7 +153,9 @@ static int test_tc_encode_decode_roundtrip(void) {
 	ASSERT_EQ_INT((int)(0x7FF & 0x3FF), decoded.header.spacecraft_id);
 	ASSERT_EQ_INT((int)(0x7F & 0x3F), decoded.header.virtual_channel_id);
 	ASSERT_EQ_INT(0x9A, decoded.header.frame_sequence_number);
-	ASSERT_EQ_INT((int)sizeof(payload) - 1, decoded.header.frame_length);
+	/* Frame Length = total octets in the frame - 1 (CCSDS 232.0-B-4, 4.1.2.7.2). */
+	ASSERT_EQ_INT(TC_PRIMARY_HEADER_SIZE + (int)sizeof(payload) + TC_FRAME_ERROR_CONTROL_SIZE - 1,
+								decoded.header.frame_length);
 	ASSERT_EQ_INT((int)sizeof(payload), decoded.data_length);
 	ASSERT_EQ_MEM(payload, decoded.data, sizeof(payload));
 
@@ -167,15 +201,38 @@ static int test_tc_fecf_passthrough(void) {
 	return 0;
 }
 
+static int test_tc_decode_invalid_frame_length(void) {
+	sdlp_tc_frame_t frame;
+	sdlp_tc_frame_t decoded;
+	const uint8_t payload[] = {0x01, 0x02, 0x03, 0x04};
+	uint8_t encoded[TC_PRIMARY_HEADER_SIZE + TC_MAX_DATA_SIZE + TC_FRAME_ERROR_CONTROL_SIZE];
+	size_t encoded_size = 0;
+
+	ASSERT_EQ_INT(SDLP_SUCCESS,
+								sdlp_tc_create_frame(&frame, 0x21, 0x06, 0x07, payload, (uint16_t)sizeof(payload)));
+	ASSERT_EQ_INT(SDLP_SUCCESS,
+								sdlp_tc_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
+
+	/* Corrupt the Frame Length low byte so it no longer matches the octet count. */
+	encoded[3] ^= 0x01;
+
+	ASSERT_EQ_INT(SDLP_ERROR_INVALID_FRAME,
+								sdlp_tc_decode_frame(encoded, encoded_size, &decoded));
+
+	return 0;
+}
+
 int main(void) {
 	RUN_TEST(test_tm_create_frame_invalid_params);
 	RUN_TEST(test_tm_encode_decode_roundtrip);
+	RUN_TEST(test_tm_data_field_status_codec);
 	RUN_TEST(test_tm_encode_buffer_too_small);
 	RUN_TEST(test_tm_fecf_passthrough);
 	RUN_TEST(test_tc_create_frame_invalid_params);
 	RUN_TEST(test_tc_encode_decode_roundtrip);
 	RUN_TEST(test_tc_encode_buffer_too_small);
 	RUN_TEST(test_tc_fecf_passthrough);
+	RUN_TEST(test_tc_decode_invalid_frame_length);
 
 	if (cunit_overall_failures) {
 		printf("\nTotal failures: %d\n", cunit_overall_failures);

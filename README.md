@@ -113,7 +113,7 @@ Look at the examples/
 - **Library (stripped)**: < 5 KB
 - **Per TM frame buffer**: `TM_PRIMARY_HEADER_SIZE` (6) + data + 2 bytes FECF
 - **Per TC frame buffer**: `TC_PRIMARY_HEADER_SIZE` (5) + data + 2 bytes FECF
-- **Maximum data per frame**: 1024 bytes (`TM_MAX_DATA_SIZE` / `TC_MAX_DATA_SIZE`)
+- **Maximum data per frame**: `TM_MAX_DATA_SIZE` = 1024 bytes (TM); `TC_MAX_DATA_SIZE` = 1017 bytes (TC — the whole frame is capped at 1024 octets per CCSDS 232.0-B-4; one less when the TC segment header is enabled)
 
 ## Limitations and Extensions
 
