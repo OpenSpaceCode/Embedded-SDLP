@@ -59,7 +59,7 @@ clean:
 	rm -rf $(BUILD_DIR) obj bin libsdlp.a
 
 coverage-html:
-	bash scripts/coverage_html.sh
+	bash tools/coverage_html.sh
 
 test: unit-tests
 	@echo "Running unit tests..."
