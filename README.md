@@ -122,7 +122,7 @@ Current implementation focuses on core protocol features:
 - No automatic retransmission handling
 - No flow control or bandwidth management
 - No segmentation beyond optional TC segment header
-- Single static frame counter (not thread-safe)
+- TM frame counts are kept per Master Channel / Virtual Channel in fixed static state (up to `TM_MAX_MASTER_CHANNELS` Master Channels; not thread-safe)
 
 These can be extended as needed for specific mission requirements.
 

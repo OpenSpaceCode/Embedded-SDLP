@@ -117,6 +117,36 @@ static int test_tm_fecf_passthrough(void) {
 	return 0;
 }
 
+static int test_tm_frame_counts_per_channel(void) {
+	sdlp_tm_frame_t f;
+	const uint8_t payload[1] = {0xA5};
+	const uint16_t scid_a = 0x055; /* SCIDs not used by other tests => fresh counters */
+	const uint16_t scid_b = 0x056;
+
+	/* First frame on (SCID A, VC 0): both counts start at 0. */
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_create_frame(&f, scid_a, 0, payload, 1));
+	ASSERT_EQ_INT(0, f.header.master_channel_frame_count);
+	ASSERT_EQ_INT(0, f.header.virtual_channel_frame_count);
+
+	/* A different VC of the same Master Channel: the MC count advances, the new VC
+	 * count is independent and starts at 0. */
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_create_frame(&f, scid_a, 1, payload, 1));
+	ASSERT_EQ_INT(1, f.header.master_channel_frame_count);
+	ASSERT_EQ_INT(0, f.header.virtual_channel_frame_count);
+
+	/* Back to VC 0: the MC count keeps advancing, VC 0 resumes its own sequence. */
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_create_frame(&f, scid_a, 0, payload, 1));
+	ASSERT_EQ_INT(2, f.header.master_channel_frame_count);
+	ASSERT_EQ_INT(1, f.header.virtual_channel_frame_count);
+
+	/* A different Master Channel keeps entirely separate counts. */
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_create_frame(&f, scid_b, 0, payload, 1));
+	ASSERT_EQ_INT(0, f.header.master_channel_frame_count);
+	ASSERT_EQ_INT(0, f.header.virtual_channel_frame_count);
+
+	return 0;
+}
+
 static int test_tc_create_frame_invalid_params(void) {
 	sdlp_tc_frame_t frame;
 	uint8_t payload[1] = {0x55};
@@ -228,6 +258,7 @@ int main(void) {
 	RUN_TEST(test_tm_data_field_status_codec);
 	RUN_TEST(test_tm_encode_buffer_too_small);
 	RUN_TEST(test_tm_fecf_passthrough);
+	RUN_TEST(test_tm_frame_counts_per_channel);
 	RUN_TEST(test_tc_create_frame_invalid_params);
 	RUN_TEST(test_tc_encode_decode_roundtrip);
 	RUN_TEST(test_tc_encode_buffer_too_small);
