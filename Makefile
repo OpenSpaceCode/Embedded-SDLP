@@ -18,7 +18,7 @@ OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))
 
 EXAMPLES = $(wildcard $(EXAMPLES_DIR)/*.c)
 EXAMPLE_BINS = $(patsubst $(EXAMPLES_DIR)/%.c,$(BIN_DIR)/%,$(EXAMPLES))
-TEST_SRC = $(TEST_DIR)/unit_tests.c
+TEST_SRCS = $(wildcard $(TEST_DIR)/*.c)
 TEST_BIN = $(BIN_DIR)/unit_tests
 
 LIB = $(BUILD_DIR)/libsdlp.a
@@ -42,8 +42,8 @@ unit-tests: $(TEST_BIN)
 $(BIN_DIR)/%: $(EXAMPLES_DIR)/%.c $(LIB) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $< $(LIB) -o $@ $(LDFLAGS)
 
-$(TEST_BIN): $(TEST_SRC) $(LIB) | $(BIN_DIR)
-	$(CC) $(CFLAGS) $< $(LIB) -o $@ $(LDFLAGS)
+$(TEST_BIN): $(TEST_SRCS) $(LIB) | $(BIN_DIR)
+	$(CC) $(CFLAGS) $(TEST_SRCS) $(LIB) -o $@ $(LDFLAGS)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
