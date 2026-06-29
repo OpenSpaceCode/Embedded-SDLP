@@ -7,12 +7,6 @@
 #include "sdlp_tc.h"
 #include "sdlp_tm.h"
 
-static int test_crc16_known_vector(void) {
-	const uint8_t data[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9'};
-	ASSERT_EQ_INT(0x29B1, sdlp_crc16(data, sizeof(data)));
-	return 0;
-}
-
 static int test_tm_create_frame_invalid_params(void) {
 	sdlp_tm_frame_t frame;
 	uint8_t payload[1] = {0xAA};
@@ -68,7 +62,7 @@ static int test_tm_encode_buffer_too_small(void) {
 	return 0;
 }
 
-static int test_tm_decode_crc_mismatch(void) {
+static int test_tm_fecf_passthrough(void) {
 	sdlp_tm_frame_t frame;
 	sdlp_tm_frame_t decoded;
 	const uint8_t payload[] = {0xDE, 0xAD, 0xBE, 0xEF};
@@ -77,13 +71,18 @@ static int test_tm_decode_crc_mismatch(void) {
 
 	ASSERT_EQ_INT(SDLP_SUCCESS,
 								sdlp_tm_create_frame(&frame, 3, 2, payload, (uint16_t)sizeof(payload)));
+	frame.fecf = 0xABCD;
 	ASSERT_EQ_INT(SDLP_SUCCESS,
 								sdlp_tm_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
 
-	encoded[TM_PRIMARY_HEADER_SIZE] ^= 0x01;
+	/* The FECF is serialized verbatim (big-endian) in the trailing two bytes. */
+	ASSERT_EQ_INT(0xAB, encoded[encoded_size - 2]);
+	ASSERT_EQ_INT(0xCD, encoded[encoded_size - 1]);
 
-	ASSERT_EQ_INT(SDLP_ERROR_CRC_MISMATCH,
-								sdlp_tm_decode_frame(encoded, encoded_size, &decoded));
+	/* Decode no longer validates the FECF: it always succeeds and surfaces the
+	 * field as-is. */
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_decode_frame(encoded, encoded_size, &decoded));
+	ASSERT_EQ_INT(0xABCD, decoded.fecf);
 
 	return 0;
 }
@@ -143,7 +142,7 @@ static int test_tc_encode_buffer_too_small(void) {
 	return 0;
 }
 
-static int test_tc_decode_crc_mismatch(void) {
+static int test_tc_fecf_passthrough(void) {
 	sdlp_tc_frame_t frame;
 	sdlp_tc_frame_t decoded;
 	const uint8_t payload[] = {0x11, 0x22, 0x33, 0x44};
@@ -152,27 +151,31 @@ static int test_tc_decode_crc_mismatch(void) {
 
 	ASSERT_EQ_INT(SDLP_SUCCESS,
 								sdlp_tc_create_frame(&frame, 0x12, 0x05, 0x42, payload, (uint16_t)sizeof(payload)));
+	frame.fecf = 0x1234;
 	ASSERT_EQ_INT(SDLP_SUCCESS,
 								sdlp_tc_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
 
-	encoded[TC_PRIMARY_HEADER_SIZE] ^= 0x80;
+	/* The FECF is serialized verbatim (big-endian) in the trailing two bytes. */
+	ASSERT_EQ_INT(0x12, encoded[encoded_size - 2]);
+	ASSERT_EQ_INT(0x34, encoded[encoded_size - 1]);
 
-	ASSERT_EQ_INT(SDLP_ERROR_CRC_MISMATCH,
-								sdlp_tc_decode_frame(encoded, encoded_size, &decoded));
+	/* Decode no longer validates the FECF: it always succeeds and surfaces the
+	 * field as-is. */
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_decode_frame(encoded, encoded_size, &decoded));
+	ASSERT_EQ_INT(0x1234, decoded.fecf);
 
 	return 0;
 }
 
 int main(void) {
-	RUN_TEST(test_crc16_known_vector);
 	RUN_TEST(test_tm_create_frame_invalid_params);
 	RUN_TEST(test_tm_encode_decode_roundtrip);
 	RUN_TEST(test_tm_encode_buffer_too_small);
-	RUN_TEST(test_tm_decode_crc_mismatch);
+	RUN_TEST(test_tm_fecf_passthrough);
 	RUN_TEST(test_tc_create_frame_invalid_params);
 	RUN_TEST(test_tc_encode_decode_roundtrip);
 	RUN_TEST(test_tc_encode_buffer_too_small);
-	RUN_TEST(test_tc_decode_crc_mismatch);
+	RUN_TEST(test_tc_fecf_passthrough);
 
 	if (cunit_overall_failures) {
 		printf("\nTotal failures: %d\n", cunit_overall_failures);

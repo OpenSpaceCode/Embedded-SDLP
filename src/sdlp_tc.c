@@ -66,11 +66,12 @@ int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame, uint8_t *buffer,
     
     memcpy(&buffer[offset], frame->data, frame->data_length);
     offset += frame->data_length;
-    
-    uint16_t crc = sdlp_crc16(buffer, offset);
-    buffer[offset++] = (uint8_t)((crc >> 8) & 0xffu);
-    buffer[offset++] = (uint8_t)(crc & 0xffu);
-    
+
+    /* The Frame Error Control Field is passed through verbatim; computing an
+     * error-control value (e.g. CRC-16) is left to the application. */
+    buffer[offset++] = (uint8_t)((frame->fecf >> 8) & 0xffu);
+    buffer[offset++] = (uint8_t)(frame->fecf & 0xffu);
+
     *encoded_size = offset;
     
     return SDLP_SUCCESS;
@@ -122,15 +123,11 @@ int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size,
     
     memcpy(frame->data, &buffer[offset], frame->data_length);
     offset += frame->data_length;
-    
+
+    /* The Frame Error Control Field is surfaced as-is; validating it (e.g. via
+     * CRC-16) is left to the application. */
     frame->fecf = (uint16_t)(((uint16_t)buffer[offset] << 8) | buffer[offset + 1]);
-    
-    uint16_t calculated_crc = sdlp_crc16(buffer, buffer_size - TC_FRAME_ERROR_CONTROL_SIZE);
-    
-    if (calculated_crc != frame->fecf) {
-        return SDLP_ERROR_CRC_MISMATCH;
-    }
-    
+
     return SDLP_SUCCESS;
 }
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "sdlp_tc.h"
+#include "example_crc.h"
 
 /* Example telecommand identifiers */
 #define TC_CMD_SET_MODE_SAFE  0x01U
@@ -49,7 +50,14 @@ int main(void) {
         printf("Error encoding frame: %d\n", result);
         return 1;
     }
-    
+
+    /* The library leaves the Frame Error Control Field to the application.
+     * Compute a CRC-16-CCITT over the encoded frame (excluding the trailing
+     * 2-byte FECF) and write it into the FECF, mirroring CCSDS error control. */
+    uint16_t fecf = example_crc16(buffer, encoded_size - TC_FRAME_ERROR_CONTROL_SIZE);
+    buffer[encoded_size - 2] = (uint8_t)((fecf >> 8) & 0xff);
+    buffer[encoded_size - 1] = (uint8_t)(fecf & 0xff);
+
     printf("Encoded frame size: %zu bytes\n", encoded_size);
     printf("Frame bytes: ");
     for (size_t i = 0; i < encoded_size && i < 20; i++) {
@@ -75,8 +83,12 @@ int main(void) {
            decoded_frame.segment_header.sequence_flags, decoded_frame.segment_header.map_id);
 #endif
     printf("Command ID: 0x%02X\n", decoded_frame.data[0]);
-    printf("CRC: 0x%04X\n", decoded_frame.fecf);
-    
+
+    /* Verify the FECF the same way it was produced (application-side). */
+    uint16_t expected_fecf = example_crc16(buffer, encoded_size - TC_FRAME_ERROR_CONTROL_SIZE);
+    printf("FECF: 0x%04X (%s)\n", decoded_frame.fecf,
+           decoded_frame.fecf == expected_fecf ? "valid" : "invalid");
+
     printf("\n=== TC Frame Example Complete ===\n");
     
     return 0;

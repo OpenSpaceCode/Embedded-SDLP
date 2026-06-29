@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "sdlp_tm.h"
+#include "example_crc.h"
 
 int main(void) {
     sdlp_tm_frame_t frame;
@@ -35,7 +36,14 @@ int main(void) {
         printf("Error encoding frame: %d\n", result);
         return 1;
     }
-    
+
+    /* The library leaves the Frame Error Control Field to the application.
+     * Compute a CRC-16-CCITT over the encoded frame (excluding the trailing
+     * 2-byte FECF) and write it into the FECF, mirroring CCSDS error control. */
+    uint16_t fecf = example_crc16(buffer, encoded_size - TM_FRAME_ERROR_CONTROL_SIZE);
+    buffer[encoded_size - 2] = (uint8_t)((fecf >> 8) & 0xff);
+    buffer[encoded_size - 1] = (uint8_t)(fecf & 0xff);
+
     printf("Encoded frame size: %zu bytes\n", encoded_size);
     printf("Frame bytes: ");
     for (size_t i = 0; i < encoded_size && i < 20; i++) {
@@ -57,8 +65,12 @@ int main(void) {
     printf("Virtual Channel: %d\n", decoded_frame.header.virtual_channel_id);
     printf("Frame Count: %d\n", decoded_frame.header.master_channel_frame_count);
     printf("Data: %.*s\n", (int)decoded_frame.data_length, decoded_frame.data);
-    printf("CRC: 0x%04X\n", decoded_frame.fecf);
-    
+
+    /* Verify the FECF the same way it was produced (application-side). */
+    uint16_t expected_fecf = example_crc16(buffer, encoded_size - TM_FRAME_ERROR_CONTROL_SIZE);
+    printf("FECF: 0x%04X (%s)\n", decoded_frame.fecf,
+           decoded_frame.fecf == expected_fecf ? "valid" : "invalid");
+
     printf("\n=== TM Frame Example Complete ===\n");
     
     return 0;

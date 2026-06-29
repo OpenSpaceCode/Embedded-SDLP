@@ -11,9 +11,9 @@ Minimal, embedded-optimized implementation of **CCSDS Space Data Link Protocol (
 
 ### Core Protocol Implementation
 
-- **Telemetry (TM) Frame Handling**: Create, encode, and decode TM frames with CRC validation
-- **Telecommand (TC) Frame Handling**: Create, encode, and decode TC frames with CRC validation
-- **CRC16 Error Detection**: Built-in frame error control field (FECF) for data integrity
+- **Telemetry (TM) Frame Handling**: Create, encode, and decode TM frames
+- **Telecommand (TC) Frame Handling**: Create, encode, and decode TC frames
+- **Frame Error Control Field (FECF)**: 2-byte FECF carried verbatim in the wire format; computing/validating the value (e.g. CRC-16) is left to the application
 - **Configurable**: Support for virtual channels, spacecraft IDs, and frame sequence numbers
 - **TC Segment Header**: Optional MAP-based segmentation support (enabled with `TC_SEGMENT_HEADER_ENABLED`)
 
@@ -23,21 +23,20 @@ Minimal, embedded-optimized implementation of **CCSDS Space Data Link Protocol (
 - **Zero allocation**: Stack-based, no dynamic memory
 - **Embedded-optimized**: Pure C11, no external dependencies
 - **Portable**: Standard C11, big-endian network byte order
-- **Reliable**: CRC-16-CCITT frame error control
 
 ## Project Structure
 
 ```
 EmbeddedSDLP/
 ├── include/
-│   ├── sdlp_common.h    # Common definitions and CRC
+│   ├── sdlp_common.h    # Common definitions and error codes
 │   ├── sdlp_tm.h        # TM frame definitions
 │   └── sdlp_tc.h        # TC frame definitions
 ├── src/
-│   ├── sdlp_common.c    # CRC16 implementation
 │   ├── sdlp_tm.c        # TM frame implementation
 │   └── sdlp_tc.c        # TC frame implementation
 ├── examples/
+│   ├── example_crc.h    # CRC-16 helper used only by the examples
 │   ├── tm_example.c     # TM frame example
 │   └── tc_example.c     # TC frame example
 ├── docs/
@@ -172,12 +171,11 @@ if (sdlp_tc_decode_frame(buffer, encoded_size, &decoded) == SDLP_SUCCESS) {
 
 ## API Reference
 
-### Common
-
-```c
-// Calculate CRC-16-CCITT checksum
-uint16_t sdlp_crc16(const uint8_t *data, size_t length);
-```
+> **Note:** The library does not compute or validate the Frame Error Control
+> Field (FECF). The 2-byte FECF is carried verbatim: `sdlp_*_encode_frame`
+> serializes `frame.fecf` as-is, and `sdlp_*_decode_frame` surfaces the received
+> value in `frame.fecf` without checking it. Applications that need error
+> control compute it themselves; the examples show one way using CRC-16-CCITT.
 
 ### TM Functions
 
@@ -191,7 +189,7 @@ int sdlp_tm_create_frame(sdlp_tm_frame_t *frame, uint16_t spacecraft_id,
 int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame, uint8_t *buffer,
                           size_t buffer_size, size_t *encoded_size);
 
-// Decode a TM frame from a byte buffer (validates CRC)
+// Decode a TM frame from a byte buffer
 int sdlp_tm_decode_frame(const uint8_t *buffer, size_t buffer_size,
                           sdlp_tm_frame_t *frame);
 ```
@@ -208,7 +206,7 @@ int sdlp_tc_create_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id,
 int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame, uint8_t *buffer,
                           size_t buffer_size, size_t *encoded_size);
 
-// Decode a TC frame from a byte buffer (validates CRC)
+// Decode a TC frame from a byte buffer
 int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size,
                           sdlp_tc_frame_t *frame);
 
@@ -221,7 +219,6 @@ All functions return `SDLP_SUCCESS` (0) on success or a negative error code on f
 - `SDLP_ERROR_INVALID_PARAM` (-1): NULL pointer or invalid parameter
 - `SDLP_ERROR_BUFFER_TOO_SMALL` (-2): Output buffer too small
 - `SDLP_ERROR_INVALID_FRAME` (-3): Frame structure invalid
-- `SDLP_ERROR_CRC_MISMATCH` (-4): CRC validation failed
 
 ## Memory Usage (Estimated)
 
