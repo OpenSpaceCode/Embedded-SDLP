@@ -89,7 +89,42 @@ int main(void) {
     printf("FECF: 0x%04X (%s)\n", decoded_frame.fecf,
            decoded_frame.fecf == expected_fecf ? "valid" : "invalid");
 
+    /* Type-BC frames carry Control Commands for the FARM instead of data
+     * (CCSDS 232.0-B-4, 4.1.3.3). Send an Unlock command. */
+    printf("\nCreating Unlock control command frame (Type-BC)...\n");
+    result = sdlp_tc_create_unlock_frame(&frame, spacecraft_id, virtual_channel);
+
+    if (result != SDLP_SUCCESS) {
+        printf("Error creating unlock frame: %d\n", result);
+        return 1;
+    }
+
+    result = sdlp_tc_encode_frame(&frame, buffer, sizeof(buffer), &encoded_size);
+
+    if (result != SDLP_SUCCESS) {
+        printf("Error encoding unlock frame: %d\n", result);
+        return 1;
+    }
+
+    uint16_t unlock_fecf = example_crc16(buffer, encoded_size - TC_FRAME_ERROR_CONTROL_SIZE);
+    buffer[encoded_size - 2] = (uint8_t)((unlock_fecf >> 8) & 0xff);
+    buffer[encoded_size - 1] = (uint8_t)(unlock_fecf & 0xff);
+
+    printf("Encoded frame size: %zu bytes\n", encoded_size);
+
+    result = sdlp_tc_decode_frame(buffer, encoded_size, &decoded_frame);
+
+    if (result != SDLP_SUCCESS) {
+        printf("Error decoding unlock frame: %d\n", result);
+        return 1;
+    }
+
+    printf("Bypass Flag: %d, Control Command Flag: %d (Type-BC)\n",
+           decoded_frame.header.bypass_flag, decoded_frame.header.control_command_flag);
+    printf("Control Command: 0x%02X (%s)\n", decoded_frame.data[0],
+           decoded_frame.data[0] == TC_CONTROL_CMD_UNLOCK ? "Unlock" : "unknown");
+
     printf("\n=== TC Frame Example Complete ===\n");
-    
+
     return 0;
 }

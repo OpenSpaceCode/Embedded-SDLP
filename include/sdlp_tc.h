@@ -14,6 +14,22 @@
  * one further octet of the data field (enforced in sdlp_tc_create_frame). */
 #define TC_MAX_DATA_SIZE (TC_MAX_FRAME_SIZE - TC_PRIMARY_HEADER_SIZE - TC_FRAME_ERROR_CONTROL_SIZE)
 
+/* TC Transfer Frame types: combined states of the Bypass Flag and the Control
+ * Command Flag (CCSDS 232.0-B-4, table 4-1). Bypass=0 with Control Command=1 is
+ * reserved for future application. */
+typedef enum {
+    SDLP_TC_FRAME_TYPE_AD = 0, /* Bypass=0, CC=0: FDU, Sequence-Controlled (AD) service */
+    SDLP_TC_FRAME_TYPE_BD,     /* Bypass=1, CC=0: FDU, Expedited (BD) service */
+    SDLP_TC_FRAME_TYPE_BC      /* Bypass=1, CC=1: Control Commands for the FARM */
+} sdlp_tc_frame_type_t;
+
+/* Control Commands carried by Type-BC frames (CCSDS 232.0-B-4, 4.1.3.3). */
+#define TC_CONTROL_CMD_UNLOCK        0x00u /* Unlock: a single 'all zeroes' octet (4.1.3.3.2) */
+#define TC_CONTROL_CMD_UNLOCK_LENGTH 1u
+#define TC_CONTROL_CMD_SET_VR_OCTET0 0x82u /* Set V(R): '10000010 00000000 XXXXXXXX' (4.1.3.3.3) */
+#define TC_CONTROL_CMD_SET_VR_OCTET1 0x00u
+#define TC_CONTROL_CMD_SET_VR_LENGTH 3u
+
 #ifdef TC_SEGMENT_HEADER_ENABLED
 
 #define TC_SEGMENT_HEADER_SIZE 1
@@ -60,9 +76,24 @@ typedef struct {
     uint16_t fecf;
 } sdlp_tc_frame_t;
 
-int sdlp_tc_create_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id, 
+int sdlp_tc_create_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id,
                           uint8_t virtual_channel_id, uint8_t frame_seq_num,
                           const uint8_t *data, uint16_t data_length);
+
+/* Select the Transfer Frame type by setting the Bypass and Control Command Flags
+ * (CCSDS 232.0-B-4, 4.1.2.3). Also recomputes the Frame Length, as Type-BC frames
+ * carry no Segment Header (4.1.3.2.2.1.3). sdlp_tc_create_frame produces Type-AD. */
+int sdlp_tc_set_frame_type(sdlp_tc_frame_t *frame, sdlp_tc_frame_type_t type);
+
+/* Build a complete Type-BC frame carrying the Unlock Control Command (4.1.3.3.2).
+ * The Frame Sequence Number is set to zero (COP does not use it for Type-B frames). */
+int sdlp_tc_create_unlock_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id,
+                                 uint8_t virtual_channel_id);
+
+/* Build a complete Type-BC frame carrying the Set V(R) Control Command (4.1.3.3.3).
+ * vr is the value the FARM should load into the Receiver_Frame_Sequence_Number. */
+int sdlp_tc_create_set_vr_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id,
+                                 uint8_t virtual_channel_id, uint8_t vr);
 
 int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame, uint8_t *buffer, 
                           size_t buffer_size, size_t *encoded_size);
