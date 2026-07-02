@@ -16,6 +16,7 @@ Minimal, embedded-optimized implementation of **CCSDS Space Data Link Protocol (
 - **Frame Error Control Field (FECF)**: 2-byte FECF carried verbatim in the wire format; computing/validating the value (e.g. CRC-16) is left to the application
 - **Configurable**: Support for virtual channels, spacecraft IDs, and frame sequence numbers
 - **TM Secondary Header**: Optional Transfer Frame Secondary Header (1–63 data octets) via `sdlp_tm_set_secondary_header`, signaled by the Secondary Header Flag and parsed automatically on decode
+- **TM Operational Control Field**: Optional 4-octet OCF carried verbatim via `sdlp_tm_set_ocf` (the caller decides whether to set the OCF Flag); its content, e.g. a CLCW, is mission-specific and left to the application
 - **TC Frame Types**: Type-AD/BD/BC frames via `sdlp_tc_set_frame_type`, plus Unlock and Set V(R) control-command helpers (`sdlp_tc_create_unlock_frame`, `sdlp_tc_create_set_vr_frame`)
 - **TC Segment Header**: Optional MAP-based segmentation support (enabled with `TC_SEGMENT_HEADER_ENABLED`)
 

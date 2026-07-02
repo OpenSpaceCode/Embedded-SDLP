@@ -197,6 +197,89 @@ static int test_tm_set_secondary_header_invalid(void) {
 	return 0;
 }
 
+static int test_tm_ocf_roundtrip(void) {
+	sdlp_tm_frame_t frame;
+	sdlp_tm_frame_t decoded;
+	const uint8_t payload[] = {0x10, 0x20, 0x30};
+	const uint8_t ocf[TM_OCF_SIZE] = {0x01, 0x02, 0x03, 0x04};
+	uint8_t encoded[TM_PRIMARY_HEADER_SIZE + TM_MAX_DATA_SIZE + TM_OCF_SIZE +
+	                TM_FRAME_ERROR_CONTROL_SIZE];
+	size_t encoded_size = 0;
+
+	ASSERT_EQ_INT(SDLP_SUCCESS,
+								sdlp_tm_create_frame(&frame, 0x101, 1, payload, (uint16_t)sizeof(payload)));
+	/* No OCF by default. */
+	ASSERT_EQ_INT(0, frame.header.ocf_flag);
+
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_set_ocf(&frame, ocf));
+	ASSERT_EQ_INT(1, frame.header.ocf_flag);
+
+	ASSERT_EQ_INT(SDLP_SUCCESS,
+								sdlp_tm_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
+	/* primary(6) + payload(3) + OCF(4) + FECF(2) */
+	ASSERT_EQ_INT(TM_PRIMARY_HEADER_SIZE + (int)sizeof(payload) + TM_OCF_SIZE +
+								TM_FRAME_ERROR_CONTROL_SIZE,
+								(int)encoded_size);
+
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_decode_frame(encoded, encoded_size, &decoded));
+	ASSERT_EQ_INT(1, decoded.header.ocf_flag);
+	ASSERT_EQ_MEM(ocf, decoded.ocf, TM_OCF_SIZE);
+	/* The OCF sits between the Data Field and the FECF; the data must be intact. */
+	ASSERT_EQ_INT((int)sizeof(payload), decoded.data_length);
+	ASSERT_EQ_MEM(payload, decoded.data, sizeof(payload));
+
+	return 0;
+}
+
+static int test_tm_secondary_header_and_ocf_roundtrip(void) {
+	sdlp_tm_frame_t frame;
+	sdlp_tm_frame_t decoded;
+	const uint8_t payload[] = {0xAA, 0xBB};
+	const uint8_t sh_data[] = {0x11, 0x22, 0x33};
+	const uint8_t ocf[TM_OCF_SIZE] = {0xDE, 0xAD, 0xBE, 0xEF};
+	uint8_t encoded[TM_PRIMARY_HEADER_SIZE + TM_SECONDARY_HEADER_ID_SIZE +
+	                TM_SECONDARY_HEADER_MAX_DATA + TM_MAX_DATA_SIZE + TM_OCF_SIZE +
+	                TM_FRAME_ERROR_CONTROL_SIZE];
+	size_t encoded_size = 0;
+
+	ASSERT_EQ_INT(SDLP_SUCCESS,
+								sdlp_tm_create_frame(&frame, 0x102, 2, payload, (uint16_t)sizeof(payload)));
+	ASSERT_EQ_INT(SDLP_SUCCESS,
+								sdlp_tm_set_secondary_header(&frame, sh_data, (uint8_t)sizeof(sh_data)));
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_set_ocf(&frame, ocf));
+
+	ASSERT_EQ_INT(SDLP_SUCCESS,
+								sdlp_tm_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
+	/* primary(6) + ID(1) + secondary(3) + payload(2) + OCF(4) + FECF(2) */
+	ASSERT_EQ_INT(TM_PRIMARY_HEADER_SIZE + TM_SECONDARY_HEADER_ID_SIZE + (int)sizeof(sh_data) +
+								(int)sizeof(payload) + TM_OCF_SIZE + TM_FRAME_ERROR_CONTROL_SIZE,
+								(int)encoded_size);
+
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_decode_frame(encoded, encoded_size, &decoded));
+	ASSERT_EQ_INT(1, decoded.header.transfer_frame_data_field_status.secondary_header_flag);
+	ASSERT_EQ_INT(1, decoded.header.ocf_flag);
+	ASSERT_EQ_MEM(sh_data, decoded.secondary_header.data, sizeof(sh_data));
+	ASSERT_EQ_MEM(ocf, decoded.ocf, TM_OCF_SIZE);
+	ASSERT_EQ_INT((int)sizeof(payload), decoded.data_length);
+	ASSERT_EQ_MEM(payload, decoded.data, sizeof(payload));
+
+	return 0;
+}
+
+static int test_tm_set_ocf_invalid(void) {
+	sdlp_tm_frame_t frame;
+	const uint8_t payload[1] = {0x01};
+	const uint8_t ocf[TM_OCF_SIZE] = {0};
+
+	ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_create_frame(&frame, 1, 0, payload, 1));
+	ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tm_set_ocf(NULL, ocf));
+	ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tm_set_ocf(&frame, NULL));
+	/* A rejected call must leave the OCF Flag clear. */
+	ASSERT_EQ_INT(0, frame.header.ocf_flag);
+
+	return 0;
+}
+
 test_result_t test_tm_run_all(void) {
 	test_result_t result;
 
@@ -208,6 +291,9 @@ test_result_t test_tm_run_all(void) {
 	RUN_TEST(test_tm_frame_counts_per_channel);
 	RUN_TEST(test_tm_secondary_header_roundtrip);
 	RUN_TEST(test_tm_set_secondary_header_invalid);
+	RUN_TEST(test_tm_ocf_roundtrip);
+	RUN_TEST(test_tm_secondary_header_and_ocf_roundtrip);
+	RUN_TEST(test_tm_set_ocf_invalid);
 
 	/* cunit's counters have internal linkage, so this translation unit tallies
 	 * only its own tests. */

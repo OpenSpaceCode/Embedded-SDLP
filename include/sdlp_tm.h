@@ -12,6 +12,9 @@
 #define TM_SECONDARY_HEADER_ID_SIZE 1
 #define TM_SECONDARY_HEADER_MAX_DATA 63
 
+/* Operational Control Field (CCSDS 132.0-B-3, 4.1.5): a fixed 4-octet trailer field. */
+#define TM_OCF_SIZE 4
+
 /* Transfer Frame Data Field Status sub-field values (CCSDS 132.0-B-3, 4.1.2.7). */
 #define TM_SEGMENT_LENGTH_ID_NO_SEGMENTATION 0x03u   /* '11'; mandatory when Sync Flag = 0 (4.1.2.7.5.2) */
 #define TM_FIRST_HEADER_POINTER_NO_PACKET    0x07ffu /* no Packet starts in the Data Field (4.1.2.7.6.4) */
@@ -55,6 +58,7 @@ typedef struct {
     sdlp_tm_secondary_header_t secondary_header;
     uint8_t data[TM_MAX_DATA_SIZE];
     uint16_t data_length;
+    uint8_t ocf[TM_OCF_SIZE]; /* valid only when header.ocf_flag is set */
     uint16_t fecf;
 } sdlp_tm_frame_t;
 
@@ -73,6 +77,12 @@ int sdlp_tm_create_frame(sdlp_tm_frame_t *frame, uint16_t spacecraft_id,
  * Secondary Header Flag and copy `length` (1..63) octets of Data Field content.
  * The Secondary Header Version Number is set to '00'. */
 int sdlp_tm_set_secondary_header(sdlp_tm_frame_t *frame, const uint8_t *data, uint8_t length);
+
+/* Attach a 4-octet Operational Control Field (CCSDS 132.0-B-3, 4.1.5): set the OCF
+ * Flag and copy the OCF content. The content (e.g. a CLCW or an SDLS report) is
+ * mission-specific and supplied verbatim by the caller. Leave this unset to emit a
+ * frame with no OCF. */
+int sdlp_tm_set_ocf(sdlp_tm_frame_t *frame, const uint8_t ocf[TM_OCF_SIZE]);
 
 int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame, uint8_t *buffer, 
                           size_t buffer_size, size_t *encoded_size);

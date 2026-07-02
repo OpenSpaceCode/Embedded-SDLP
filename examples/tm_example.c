@@ -71,7 +71,36 @@ int main(void) {
     printf("FECF: 0x%04X (%s)\n", decoded_frame.fecf,
            decoded_frame.fecf == expected_fecf ? "valid" : "invalid");
 
+    /* Optionally attach a 4-octet Operational Control Field (CCSDS 132.0-B-3, 4.1.5).
+     * Its content is mission-specific (e.g. a CLCW); here it is opaque. Setting it
+     * raises the OCF Flag; leaving it unset emits a frame with no OCF. */
+    printf("\nEncoding the same frame with an Operational Control Field...\n");
+    const uint8_t clcw[4] = {0x00, 0x00, 0x00, 0x00};
+    result = sdlp_tm_set_ocf(&frame, clcw);
+    if (result != SDLP_SUCCESS) {
+        printf("Error setting OCF: %d\n", result);
+        return 1;
+    }
+
+    result = sdlp_tm_encode_frame(&frame, buffer, sizeof(buffer), &encoded_size);
+    if (result != SDLP_SUCCESS) {
+        printf("Error encoding frame: %d\n", result);
+        return 1;
+    }
+
+    result = sdlp_tm_decode_frame(buffer, encoded_size, &decoded_frame);
+    if (result != SDLP_SUCCESS) {
+        printf("Error decoding frame: %d\n", result);
+        return 1;
+    }
+
+    printf("Encoded frame size: %zu bytes\n", encoded_size);
+    printf("OCF Flag: %d, OCF: %02X %02X %02X %02X\n",
+           decoded_frame.header.ocf_flag,
+           decoded_frame.ocf[0], decoded_frame.ocf[1],
+           decoded_frame.ocf[2], decoded_frame.ocf[3]);
+
     printf("\n=== TM Frame Example Complete ===\n");
-    
+
     return 0;
 }

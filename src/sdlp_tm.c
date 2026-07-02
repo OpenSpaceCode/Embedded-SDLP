@@ -122,6 +122,17 @@ int sdlp_tm_set_secondary_header(sdlp_tm_frame_t *frame, const uint8_t *data, ui
     return SDLP_SUCCESS;
 }
 
+int sdlp_tm_set_ocf(sdlp_tm_frame_t *frame, const uint8_t ocf[TM_OCF_SIZE]) {
+    if (!frame || !ocf) {
+        return SDLP_ERROR_INVALID_PARAM;
+    }
+
+    frame->header.ocf_flag = 1;
+    memcpy(frame->ocf, ocf, TM_OCF_SIZE);
+
+    return SDLP_SUCCESS;
+}
+
 int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame, uint8_t *buffer,
                           size_t buffer_size, size_t *encoded_size) {
     if (!frame || !buffer || !encoded_size) {
@@ -130,12 +141,16 @@ int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame, uint8_t *buffer,
     
     int secondary_header_present =
         frame->header.transfer_frame_data_field_status.secondary_header_flag ? 1 : 0;
+    int ocf_present = frame->header.ocf_flag ? 1 : 0;
 
     size_t required_size = TM_PRIMARY_HEADER_SIZE + frame->data_length +
                            TM_FRAME_ERROR_CONTROL_SIZE;
 
     if (secondary_header_present) {
         required_size += TM_SECONDARY_HEADER_ID_SIZE + frame->secondary_header.length;
+    }
+    if (ocf_present) {
+        required_size += TM_OCF_SIZE;
     }
 
     if (buffer_size < required_size) {
@@ -168,6 +183,13 @@ int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame, uint8_t *buffer,
 
     memcpy(&buffer[offset], frame->data, frame->data_length);
     offset += frame->data_length;
+
+    /* Operational Control Field (CCSDS 132.0-B-3, 4.1.5): four octets following the
+     * Data Field, present when the OCF Flag is set. The content is caller-supplied. */
+    if (ocf_present) {
+        memcpy(&buffer[offset], frame->ocf, TM_OCF_SIZE);
+        offset += TM_OCF_SIZE;
+    }
 
     /* The Frame Error Control Field is passed through verbatim; computing an
      * error-control value (e.g. CRC-16) is left to the application. */
@@ -234,15 +256,29 @@ int sdlp_tm_decode_frame(const uint8_t *buffer, size_t buffer_size,
         offset += secondary_header_size;
     }
 
-    frame->data_length = (uint16_t)(buffer_size - TM_PRIMARY_HEADER_SIZE - secondary_header_size -
-                         TM_FRAME_ERROR_CONTROL_SIZE);
+    /* Operational Control Field (CCSDS 132.0-B-3, 4.1.5): four octets between the
+     * Data Field and the Frame Error Control Field, present when the OCF Flag is set. */
+    size_t ocf_size = frame->header.ocf_flag ? TM_OCF_SIZE : 0;
+
+    size_t overhead = TM_PRIMARY_HEADER_SIZE + secondary_header_size + ocf_size +
+                      TM_FRAME_ERROR_CONTROL_SIZE;
+    if (buffer_size < overhead) {
+        return SDLP_ERROR_INVALID_FRAME;
+    }
+
+    frame->data_length = (uint16_t)(buffer_size - overhead);
 
     if (frame->data_length > TM_MAX_DATA_SIZE) {
         return SDLP_ERROR_INVALID_FRAME;
     }
-    
+
     memcpy(frame->data, &buffer[offset], frame->data_length);
     offset += frame->data_length;
+
+    if (frame->header.ocf_flag) {
+        memcpy(frame->ocf, &buffer[offset], TM_OCF_SIZE);
+        offset += TM_OCF_SIZE;
+    }
 
     /* The Frame Error Control Field is surfaced as-is; validating it (e.g. via
      * CRC-16) is left to the application. */
