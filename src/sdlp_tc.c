@@ -1,23 +1,29 @@
 #include "sdlp_tc.h"
+
 #include <string.h>
 
 /* Frame Length = total octets in the Transfer Frame - 1 (CCSDS 232.0-B-4, 4.1.2.7.2).
  * The Segment Header, when compiled in, is only carried by frames conveying Frame
  * Data Units, never by Type-BC (control command) frames (4.1.3.2.2.1.3). */
-static uint16_t tc_frame_length(const sdlp_tc_frame_t *frame) {
-    size_t frame_octets = TC_PRIMARY_HEADER_SIZE + frame->data_length +
-                          TC_FRAME_ERROR_CONTROL_SIZE;
+static uint16_t tc_frame_length(const sdlp_tc_frame_t *frame)
+{
+    size_t frame_octets = TC_PRIMARY_HEADER_SIZE + frame->data_length + TC_FRAME_ERROR_CONTROL_SIZE;
 #ifdef TC_SEGMENT_HEADER_ENABLED
-    if (!frame->header.control_command_flag) {
+    if (!frame->header.control_command_flag)
+    {
         frame_octets += TC_SEGMENT_HEADER_SIZE;
     }
 #endif
     return (uint16_t)(frame_octets - 1u);
 }
 
-int sdlp_tc_create_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id,
-                          uint8_t virtual_channel_id, uint8_t frame_seq_num,
-                          const uint8_t *data, uint16_t data_length) {
+int sdlp_tc_create_frame(sdlp_tc_frame_t *frame,
+                         uint16_t spacecraft_id,
+                         uint8_t virtual_channel_id,
+                         uint8_t frame_seq_num,
+                         const uint8_t *data,
+                         uint16_t data_length)
+{
     /* A Type-D Frame Data Unit carries a Segment Header (when configured), which
      * consumes one octet of the Data Field budget (CCSDS 232.0-B-4, 4.1.3.2.1). */
     size_t max_data = TC_MAX_DATA_SIZE;
@@ -25,7 +31,8 @@ int sdlp_tc_create_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id,
     max_data -= TC_SEGMENT_HEADER_SIZE;
 #endif
 
-    if (!frame || !data || data_length == 0u || data_length > max_data) {
+    if (!frame || !data || data_length == 0u || data_length > max_data)
+    {
         return SDLP_ERROR_INVALID_PARAM;
     }
 
@@ -49,12 +56,15 @@ int sdlp_tc_create_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id,
     return SDLP_SUCCESS;
 }
 
-int sdlp_tc_set_frame_type(sdlp_tc_frame_t *frame, sdlp_tc_frame_type_t type) {
-    if (!frame) {
+int sdlp_tc_set_frame_type(sdlp_tc_frame_t *frame, sdlp_tc_frame_type_t type)
+{
+    if (!frame)
+    {
         return SDLP_ERROR_INVALID_PARAM;
     }
 
-    switch (type) {
+    switch (type)
+    {
     case SDLP_TC_FRAME_TYPE_AD:
         frame->header.bypass_flag = 0;
         frame->header.control_command_flag = 0;
@@ -78,53 +88,75 @@ int sdlp_tc_set_frame_type(sdlp_tc_frame_t *frame, sdlp_tc_frame_type_t type) {
     return SDLP_SUCCESS;
 }
 
-int sdlp_tc_create_unlock_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id,
-                                 uint8_t virtual_channel_id) {
+int sdlp_tc_create_unlock_frame(sdlp_tc_frame_t *frame,
+                                uint16_t spacecraft_id,
+                                uint8_t virtual_channel_id)
+{
     const uint8_t cmd[TC_CONTROL_CMD_UNLOCK_LENGTH] = {TC_CONTROL_CMD_UNLOCK};
 
     /* COP does not use the Frame Sequence Number of Type-B frames; it is set to
      * 'all zeroes' (CCSDS 232.0-B-4, 4.1.2.8 note 3). */
-    int result = sdlp_tc_create_frame(frame, spacecraft_id, virtual_channel_id, 0,
-                                      cmd, (uint16_t)sizeof(cmd));
-    if (result != SDLP_SUCCESS) {
+    int result = sdlp_tc_create_frame(frame,
+                                      spacecraft_id,
+                                      virtual_channel_id,
+                                      0,
+                                      cmd,
+                                      (uint16_t)sizeof(cmd));
+    if (result != SDLP_SUCCESS)
+    {
         return result;
     }
 
     return sdlp_tc_set_frame_type(frame, SDLP_TC_FRAME_TYPE_BC);
 }
 
-int sdlp_tc_create_set_vr_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id,
-                                 uint8_t virtual_channel_id, uint8_t vr) {
-    const uint8_t cmd[TC_CONTROL_CMD_SET_VR_LENGTH] = {
-        TC_CONTROL_CMD_SET_VR_OCTET0, TC_CONTROL_CMD_SET_VR_OCTET1, vr};
+int sdlp_tc_create_set_vr_frame(sdlp_tc_frame_t *frame,
+                                uint16_t spacecraft_id,
+                                uint8_t virtual_channel_id,
+                                uint8_t vr)
+{
+    const uint8_t cmd[TC_CONTROL_CMD_SET_VR_LENGTH] = {TC_CONTROL_CMD_SET_VR_OCTET0,
+                                                       TC_CONTROL_CMD_SET_VR_OCTET1,
+                                                       vr};
 
     /* COP does not use the Frame Sequence Number of Type-B frames; it is set to
      * 'all zeroes' (CCSDS 232.0-B-4, 4.1.2.8 note 3). */
-    int result = sdlp_tc_create_frame(frame, spacecraft_id, virtual_channel_id, 0,
-                                      cmd, (uint16_t)sizeof(cmd));
-    if (result != SDLP_SUCCESS) {
+    int result = sdlp_tc_create_frame(frame,
+                                      spacecraft_id,
+                                      virtual_channel_id,
+                                      0,
+                                      cmd,
+                                      (uint16_t)sizeof(cmd));
+    if (result != SDLP_SUCCESS)
+    {
         return result;
     }
 
     return sdlp_tc_set_frame_type(frame, SDLP_TC_FRAME_TYPE_BC);
 }
 
-int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame, uint8_t *buffer, 
-                          size_t buffer_size, size_t *encoded_size) {
-    if (!frame || !buffer || !encoded_size) {
+int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame,
+                         uint8_t *buffer,
+                         size_t buffer_size,
+                         size_t *encoded_size)
+{
+    if (!frame || !buffer || !encoded_size)
+    {
         return SDLP_ERROR_INVALID_PARAM;
     }
-    
-    size_t required_size = TC_PRIMARY_HEADER_SIZE + frame->data_length + 
-                           TC_FRAME_ERROR_CONTROL_SIZE;
+
+    size_t required_size =
+        TC_PRIMARY_HEADER_SIZE + frame->data_length + TC_FRAME_ERROR_CONTROL_SIZE;
 
 #ifdef TC_SEGMENT_HEADER_ENABLED
-    if (!frame->header.control_command_flag) {
+    if (!frame->header.control_command_flag)
+    {
         required_size += TC_SEGMENT_HEADER_SIZE;
     }
 #endif
-    
-    if (buffer_size < required_size) {
+
+    if (buffer_size < required_size)
+    {
         return SDLP_ERROR_BUFFER_TOO_SMALL;
     }
 
@@ -133,25 +165,26 @@ int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame, uint8_t *buffer,
     uint16_t frame_length = (uint16_t)(required_size - 1u);
 
     size_t offset = 0;
-    
-    buffer[offset++] = (uint8_t)((frame->header.transfer_frame_version << 6) | 
-                       ((frame->header.bypass_flag & 0x01u) << 5) |
-                       ((frame->header.control_command_flag & 0x01u) << 4) |
-                       ((frame->header.reserved & 0x03u) << 2) |
-                       ((frame->header.spacecraft_id >> 8) & 0x03u));
+
+    buffer[offset++] = (uint8_t)((frame->header.transfer_frame_version << 6) |
+                                 ((frame->header.bypass_flag & 0x01u) << 5) |
+                                 ((frame->header.control_command_flag & 0x01u) << 4) |
+                                 ((frame->header.reserved & 0x03u) << 2) |
+                                 ((frame->header.spacecraft_id >> 8) & 0x03u));
     buffer[offset++] = (uint8_t)(frame->header.spacecraft_id & 0xffu);
     buffer[offset++] = (uint8_t)(((frame->header.virtual_channel_id & 0x3fu) << 2) |
-                       ((frame_length >> 8) & 0x03u));
+                                 ((frame_length >> 8) & 0x03u));
     buffer[offset++] = (uint8_t)(frame_length & 0xffu);
     buffer[offset++] = frame->header.frame_sequence_number;
 
 #ifdef TC_SEGMENT_HEADER_ENABLED
-    if (!frame->header.control_command_flag) {
+    if (!frame->header.control_command_flag)
+    {
         buffer[offset++] = (uint8_t)(((frame->segment_header.sequence_flags & 0x03u) << 6) |
-                           (frame->segment_header.map_id & 0x3fu));
+                                     (frame->segment_header.map_id & 0x3fu));
     }
 #endif
-    
+
     memcpy(&buffer[offset], frame->data, frame->data_length);
     offset += frame->data_length;
 
@@ -161,66 +194,78 @@ int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame, uint8_t *buffer,
     buffer[offset++] = (uint8_t)(frame->fecf & 0xffu);
 
     *encoded_size = offset;
-    
+
     return SDLP_SUCCESS;
 }
 
-int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size, 
-                          sdlp_tc_frame_t *frame) {
-    if (!buffer || !frame || buffer_size < TC_PRIMARY_HEADER_SIZE + TC_FRAME_ERROR_CONTROL_SIZE) {
+int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tc_frame_t *frame)
+{
+    if (!buffer || !frame || buffer_size < TC_PRIMARY_HEADER_SIZE + TC_FRAME_ERROR_CONTROL_SIZE)
+    {
         return SDLP_ERROR_INVALID_PARAM;
     }
-    
+
     memset(frame, 0, sizeof(sdlp_tc_frame_t));
 
     size_t offset = 0;
-    
+
     frame->header.transfer_frame_version = (uint8_t)((buffer[offset] >> 6) & 0x03u);
     frame->header.bypass_flag = (uint8_t)((buffer[offset] >> 5) & 0x01u);
     frame->header.control_command_flag = (uint8_t)((buffer[offset] >> 4) & 0x01u);
     frame->header.reserved = (uint8_t)((buffer[offset] >> 2) & 0x03u);
-    frame->header.spacecraft_id = (uint16_t)(((uint16_t)(buffer[offset] & 0x03u) << 8) | buffer[offset + 1]);
+    frame->header.spacecraft_id =
+        (uint16_t)(((uint16_t)(buffer[offset] & 0x03u) << 8) | buffer[offset + 1]);
     offset += 2;
 
     /* Bypass=0 with Control Command=1 is reserved for future application
      * (CCSDS 232.0-B-4, table 4-1). */
-    if (!frame->header.bypass_flag && frame->header.control_command_flag) {
+    if (!frame->header.bypass_flag && frame->header.control_command_flag)
+    {
         return SDLP_ERROR_INVALID_FRAME;
     }
-    
+
     frame->header.virtual_channel_id = (uint8_t)((buffer[offset] >> 2) & 0x3fu);
-    frame->header.frame_length = (uint16_t)((((uint16_t)buffer[offset] & 0x03u) << 8) |
-                                 (uint16_t)buffer[offset + 1]);
+    frame->header.frame_length =
+        (uint16_t)((((uint16_t)buffer[offset] & 0x03u) << 8) | (uint16_t)buffer[offset + 1]);
     offset += 2;
     frame->header.frame_sequence_number = buffer[offset++];
 
     /* Frame Validation: the Frame Length must equal the actual octet count minus one
      * (CCSDS 232.0-B-4, 4.1.2.7.2). */
-    if ((size_t)frame->header.frame_length + 1u != buffer_size) {
+    if ((size_t)frame->header.frame_length + 1u != buffer_size)
+    {
         return SDLP_ERROR_INVALID_FRAME;
     }
 
 #ifdef TC_SEGMENT_HEADER_ENABLED
-    if (!frame->header.control_command_flag) {
-        if (buffer_size < TC_PRIMARY_HEADER_SIZE + TC_SEGMENT_HEADER_SIZE + TC_FRAME_ERROR_CONTROL_SIZE) {
+    if (!frame->header.control_command_flag)
+    {
+        if (buffer_size <
+            TC_PRIMARY_HEADER_SIZE + TC_SEGMENT_HEADER_SIZE + TC_FRAME_ERROR_CONTROL_SIZE)
+        {
             return SDLP_ERROR_INVALID_FRAME;
         }
         frame->segment_header.sequence_flags = (uint8_t)((buffer[offset] >> 6) & 0x03u);
         frame->segment_header.map_id = (uint8_t)(buffer[offset] & 0x3fu);
         offset++;
-        frame->data_length = (uint16_t)(buffer_size - TC_PRIMARY_HEADER_SIZE - TC_SEGMENT_HEADER_SIZE -
-                             TC_FRAME_ERROR_CONTROL_SIZE);
-    } else {
-        frame->data_length = (uint16_t)(buffer_size - TC_PRIMARY_HEADER_SIZE - TC_FRAME_ERROR_CONTROL_SIZE);
+        frame->data_length = (uint16_t)(buffer_size - TC_PRIMARY_HEADER_SIZE -
+                                        TC_SEGMENT_HEADER_SIZE - TC_FRAME_ERROR_CONTROL_SIZE);
+    }
+    else
+    {
+        frame->data_length =
+            (uint16_t)(buffer_size - TC_PRIMARY_HEADER_SIZE - TC_FRAME_ERROR_CONTROL_SIZE);
     }
 #else
-    frame->data_length = (uint16_t)(buffer_size - TC_PRIMARY_HEADER_SIZE - TC_FRAME_ERROR_CONTROL_SIZE);
+    frame->data_length =
+        (uint16_t)(buffer_size - TC_PRIMARY_HEADER_SIZE - TC_FRAME_ERROR_CONTROL_SIZE);
 #endif
-    
-    if (frame->data_length > TC_MAX_DATA_SIZE) {
+
+    if (frame->data_length > TC_MAX_DATA_SIZE)
+    {
         return SDLP_ERROR_INVALID_FRAME;
     }
-    
+
     memcpy(frame->data, &buffer[offset], frame->data_length);
     offset += frame->data_length;
 
@@ -232,8 +277,12 @@ int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size,
 }
 
 #ifdef TC_SEGMENT_HEADER_ENABLED
-int sdlp_tc_set_segment_header(sdlp_tc_frame_t *frame, sdlp_tc_seq_flag_t sequence_flags, uint8_t map_id) {
-    if (!frame) {
+int sdlp_tc_set_segment_header(sdlp_tc_frame_t *frame,
+                               sdlp_tc_seq_flag_t sequence_flags,
+                               uint8_t map_id)
+{
+    if (!frame)
+    {
         return SDLP_ERROR_INVALID_PARAM;
     }
     frame->segment_header.sequence_flags = (uint8_t)(sequence_flags & 0x03u);

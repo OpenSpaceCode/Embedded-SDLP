@@ -1,8 +1,8 @@
 #ifndef SDLP_COMMON_H
 #define SDLP_COMMON_H
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define SDLP_VERSION 0
 
