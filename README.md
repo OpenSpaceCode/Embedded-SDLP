@@ -42,6 +42,14 @@ EmbeddedSDLP/
 │   ├── example_crc.h    # CRC-16 helper used only by the examples
 │   ├── tm_example.c     # TM frame example
 │   └── tc_example.c     # TC frame example
+├── tests/
+│   ├── cunit.h          # Minimal unit-test assertion helpers
+│   ├── test_runners.h   # Per-module test runner interface
+│   ├── test_tm.c        # TM unit tests
+│   ├── test_tc.c        # TC unit tests
+│   └── unit_tests.c     # Test entry point (aggregates per-module results)
+├── tools/
+│   └── coverage_html.sh # Coverage (HTML) report generator
 ├── docs/
 │   ├── 132x0b3_TM_SDLP.pdf   # CCSDS 132.0-B-3 standard
 │   └── 232x0b4e1c1_TC_SDLP.pdf # CCSDS 232.0-B-4 standard
@@ -114,17 +122,20 @@ Look at the examples/
 ## Memory Usage (Estimated)
 
 - **Library (stripped)**: < 5 KB
-- **Per TM frame buffer**: `TM_PRIMARY_HEADER_SIZE` (6) + data + 2 bytes FECF
-- **Per TC frame buffer**: `TC_PRIMARY_HEADER_SIZE` (5) + data + 2 bytes FECF
+- **Per TM frame buffer**: `TM_PRIMARY_HEADER_SIZE` (6) + optional secondary header (≤ 64) + data + optional OCF (4) + 2 bytes FECF
+- **Per TC frame buffer**: `TC_PRIMARY_HEADER_SIZE` (5) + optional segment header (1) + data + 2 bytes FECF
 - **Maximum data per frame**: `TM_MAX_DATA_SIZE` = 1024 bytes (TM); `TC_MAX_DATA_SIZE` = 1017 bytes (TC — the whole frame is capped at 1024 octets per CCSDS 232.0-B-4; one less when the TC segment header is enabled)
 
 ## Limitations and Extensions
 
 Current implementation focuses on core protocol features:
 
-- No automatic retransmission handling
+- No automatic retransmission handling (COP-1 FOP/FARM)
 - No flow control or bandwidth management
 - No segmentation beyond optional TC segment header
+- No SDLS (Space Data Link Security) option
+- No TM Only-Idle-Data (OID) frame generation or PN randomization
+- TM Transfer Frames are variable length; the mission-fixed frame length must be enforced by the caller
 - TM frame counts are kept per Master Channel / Virtual Channel in fixed static state (up to `TM_MAX_MASTER_CHANNELS` Master Channels; not thread-safe)
 
 These can be extended as needed for specific mission requirements.
