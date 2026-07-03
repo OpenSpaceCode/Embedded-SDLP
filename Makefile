@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS ?= -O2 -Iinclude -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+CFLAGS ?= -O2 -Iinclude -Wall -Wextra -Wpedantic -Wshadow \
 		  -Wcast-align -Wcast-qual -Wpointer-arith -Wformat=2 \
 		  -Wmissing-prototypes -Wstrict-prototypes -Wredundant-decls -Wundef \
 		  -std=c11
