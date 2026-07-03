@@ -1,3 +1,7 @@
+/**
+ * @file unit_tests.c
+ * @brief Unit test entry point: runs each module's suite and reports the tally.
+ */
 #include "test_runners.h"
 
 #include <stdio.h>

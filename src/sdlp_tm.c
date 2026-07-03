@@ -1,34 +1,51 @@
+/**
+ * @file sdlp_tm.c
+ * @brief TM Space Data Link Protocol frame handling (CCSDS 132.0-B-3).
+ *
+ * Implements the API declared in sdlp_tm.h: create/encode/decode of TM Transfer
+ * Frames, the Data Field Status codec, the Secondary Header and OCF setters, and
+ * the per-Master/Virtual-Channel frame counters.
+ */
 #include "sdlp_tm.h"
 
 #include <string.h>
 
-/* Master Channel Frame Count and Virtual Channel Frame Count are maintained per
- * Master Channel (identified by Spacecraft ID, as the Transfer Frame Version Number
- * is fixed at 0) and, within each Master Channel, per Virtual Channel
- * (CCSDS 132.0-B-3, 4.1.2.5 and 4.1.2.6). Both counts are free-running modulo-256.
+/**
+ * @brief Number of distinct Master Channels whose frame counts are tracked concurrently.
  *
- * State lives in a fixed-size table (no dynamic allocation). Up to
- * TM_MAX_MASTER_CHANNELS distinct Master Channels are tracked concurrently; frames
- * for any further Master Channels are emitted with zeroed counts. Not thread-safe:
- * the caller must serialize calls. */
+ * TM Master/Virtual Channel Frame Counts are kept per Master Channel (identified by
+ * Spacecraft ID, as the Transfer Frame Version Number is fixed at 0) and, within each,
+ * per Virtual Channel (CCSDS 132.0-B-3, 4.1.2.5 and 4.1.2.6). Both counts are
+ * free-running modulo-256. State lives in a fixed-size table (no dynamic allocation);
+ * frames for further Master Channels are emitted with zeroed counts. Not thread-safe.
+ */
 #ifndef TM_MAX_MASTER_CHANNELS
 #    define TM_MAX_MASTER_CHANNELS 8
 #endif
 
-#define TM_VC_PER_MC 8 /* the TM Virtual Channel Identifier is 3 bits */
+#define TM_VC_PER_MC 8 /**< TM Virtual Channels per Master Channel (VCID is 3 bits). */
 
+/**
+ * @brief Per-Master-Channel frame-count state.
+ */
 typedef struct
 {
-    uint8_t in_use;
-    uint16_t spacecraft_id;
-    uint8_t mc_frame_count;
-    uint8_t vc_frame_count[TM_VC_PER_MC];
+    uint8_t in_use;                       /**< Slot occupied. */
+    uint16_t spacecraft_id;               /**< Master Channel ID (Spacecraft Identifier). */
+    uint8_t mc_frame_count;               /**< Master Channel Frame Count (modulo-256). */
+    uint8_t vc_frame_count[TM_VC_PER_MC]; /**< Virtual Channel Frame Counts, indexed by VCID. */
 } tm_master_channel_t;
 
+/** @brief Fixed-size table of per-Master-Channel counter state. */
 static tm_master_channel_t tm_master_channels[TM_MAX_MASTER_CHANNELS];
 
-/* Return the counter state for a Master Channel, allocating a slot on first use.
- * Returns NULL if the table is already full of other Master Channels. */
+/**
+ * @brief Return the counter state for a Master Channel, allocating a slot on first use.
+ *
+ * @param[in] spacecraft_id Master Channel ID (Spacecraft Identifier) to look up.
+ * @return Pointer to the channel's counters, or NULL if the table is already full of
+ *         other Master Channels.
+ */
 static tm_master_channel_t *tm_get_master_channel(uint16_t spacecraft_id)
 {
     for (size_t i = 0; i < TM_MAX_MASTER_CHANNELS; i++)

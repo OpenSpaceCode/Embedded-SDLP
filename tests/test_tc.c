@@ -1,3 +1,7 @@
+/**
+ * @file test_tc.c
+ * @brief Unit tests for the TC Space Data Link Protocol frame handler.
+ */
 #include "cunit.h"
 #include "sdlp_common.h"
 #include "sdlp_tc.h"

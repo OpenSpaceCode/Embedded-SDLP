@@ -1,3 +1,11 @@
+/**
+ * @file tc_example.c
+ * @brief Worked example: build, encode, and decode TC Transfer Frames.
+ *
+ * Demonstrates a Type-AD data frame with application-side FECF computation and a
+ * Type-BC Unlock control-command frame.
+ */
+
 #include "example_crc.h"
 #include "sdlp_tc.h"
 

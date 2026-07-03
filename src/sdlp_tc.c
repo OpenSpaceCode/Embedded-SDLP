@@ -1,10 +1,24 @@
+/**
+ * @file sdlp_tc.c
+ * @brief TC Space Data Link Protocol frame handling (CCSDS 232.0-B-4).
+ *
+ * Implements the API declared in sdlp_tc.h: create/encode/decode of TC Transfer
+ * Frames, the AD/BD/BC frame-type selector, and the Unlock / Set V(R) control-
+ * command builders.
+ */
 #include "sdlp_tc.h"
 
 #include <string.h>
 
-/* Frame Length = total octets in the Transfer Frame - 1 (CCSDS 232.0-B-4, 4.1.2.7.2).
- * The Segment Header, when compiled in, is only carried by frames conveying Frame
- * Data Units, never by Type-BC (control command) frames (4.1.3.2.2.1.3). */
+/**
+ * @brief Compute the wire Frame Length: total octets in the Transfer Frame − 1 (§4.1.2.7.2).
+ *
+ * The Segment Header, when compiled in, is carried only by frames conveying Frame
+ * Data Units, never by Type-BC (control command) frames (§4.1.3.2.2.1.3).
+ *
+ * @param[in] frame Frame whose current fields determine the emitted size.
+ * @return The 10-bit Frame Length value.
+ */
 static uint16_t tc_frame_length(const sdlp_tc_frame_t *frame)
 {
     size_t frame_octets = TC_PRIMARY_HEADER_SIZE + frame->data_length + TC_FRAME_ERROR_CONTROL_SIZE;

@@ -1,3 +1,11 @@
+/**
+ * @file tm_example.c
+ * @brief Worked example: build, encode, and decode a TM Transfer Frame.
+ *
+ * Demonstrates a plain data frame, application-side FECF computation, and an
+ * optional Operational Control Field.
+ */
+
 #include "example_crc.h"
 #include "sdlp_tm.h"
 
