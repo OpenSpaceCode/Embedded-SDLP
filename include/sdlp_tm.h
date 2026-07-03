@@ -14,6 +14,11 @@
 
 #include "sdlp_common.h"
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #define TM_PRIMARY_HEADER_SIZE 6      /**< Transfer Frame Primary Header size (§4.1.2). */
 #define TM_FRAME_ERROR_CONTROL_SIZE 2 /**< Frame Error Control Field size (§4.1.6). */
 #define TM_MAX_DATA_SIZE 1024         /**< Maximum Transfer Frame Data Field carried. */
@@ -196,5 +201,9 @@ int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame,
  * @return ::SDLP_SUCCESS, ::SDLP_ERROR_INVALID_PARAM, or ::SDLP_ERROR_INVALID_FRAME.
  */
 int sdlp_tm_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tm_frame_t *frame);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SDLP_TM_H */

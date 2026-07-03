@@ -14,6 +14,11 @@
 
 #include "sdlp_common.h"
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #define TC_PRIMARY_HEADER_SIZE 5      /**< Transfer Frame Primary Header size (§4.1.2). */
 #define TC_FRAME_ERROR_CONTROL_SIZE 2 /**< Frame Error Control Field size (§4.1.4). */
 
@@ -218,6 +223,10 @@ int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tc_fram
 int sdlp_tc_set_segment_header(sdlp_tc_frame_t *frame,
                                sdlp_tc_seq_flag_t sequence_flags,
                                uint8_t map_id);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* SDLP_TC_H */

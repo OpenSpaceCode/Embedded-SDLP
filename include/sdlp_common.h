@@ -12,11 +12,20 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #define SDLP_VERSION 0 /**< Transfer Frame Version Number — '00' for both TM and TC. */
 
 #define SDLP_SUCCESS 0                 /**< Operation completed successfully. */
 #define SDLP_ERROR_INVALID_PARAM -1    /**< NULL pointer or out-of-range argument. */
 #define SDLP_ERROR_BUFFER_TOO_SMALL -2 /**< Output buffer smaller than the encoded frame. */
 #define SDLP_ERROR_INVALID_FRAME -3    /**< Malformed or inconsistent frame on decode. */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SDLP_COMMON_H */
