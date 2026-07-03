@@ -22,7 +22,7 @@ int main(void)
     printf("=== TM Frame Example ===\n\n");
 
     const char *telemetry_data = "Temperature: 25C, Voltage: 3.3V";
-    uint16_t spacecraft_id = 0x123;
+    uint16_t spacecraft_id = 0x123u;
     uint8_t virtual_channel = 2;
 
     printf("Creating TM frame...\n");
@@ -55,8 +55,8 @@ int main(void)
      * Compute a CRC-16-CCITT over the encoded frame (excluding the trailing
      * 2-byte FECF) and write it into the FECF, mirroring CCSDS error control. */
     uint16_t fecf = example_crc16(buffer, encoded_size - TM_FRAME_ERROR_CONTROL_SIZE);
-    buffer[encoded_size - 2] = (uint8_t)((fecf >> 8) & 0xff);
-    buffer[encoded_size - 1] = (uint8_t)(fecf & 0xff);
+    buffer[encoded_size - 2] = (uint8_t)((fecf >> 8) & 0xFFu);
+    buffer[encoded_size - 1] = (uint8_t)(fecf & 0xFFu);
 
     printf("Encoded frame size: %zu bytes\n", encoded_size);
     printf("Frame bytes: ");
@@ -92,7 +92,7 @@ int main(void)
      * Its content is mission-specific (e.g. a CLCW); here it is opaque. Setting it
      * raises the OCF Flag; leaving it unset emits a frame with no OCF. */
     printf("\nEncoding the same frame with an Operational Control Field...\n");
-    const uint8_t clcw[4] = {0x00, 0x00, 0x00, 0x00};
+    const uint8_t clcw[4] = {0x00u, 0x00u, 0x00u, 0x00u};
     result = sdlp_tm_set_ocf(&frame, clcw);
     if (result != SDLP_SUCCESS)
     {

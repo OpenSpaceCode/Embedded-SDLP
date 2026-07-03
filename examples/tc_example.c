@@ -24,7 +24,7 @@ int main(void)
     printf("=== TC Frame Example ===\n\n");
 
     uint8_t cmd_id = TC_CMD_SET_MODE_SAFE;
-    uint16_t spacecraft_id = 0x123;
+    uint16_t spacecraft_id = 0x123u;
     uint8_t virtual_channel = 1;
     uint8_t sequence_number = 42;
 
@@ -73,8 +73,8 @@ int main(void)
      * Compute a CRC-16-CCITT over the encoded frame (excluding the trailing
      * 2-byte FECF) and write it into the FECF, mirroring CCSDS error control. */
     uint16_t fecf = example_crc16(buffer, encoded_size - TC_FRAME_ERROR_CONTROL_SIZE);
-    buffer[encoded_size - 2] = (uint8_t)((fecf >> 8) & 0xff);
-    buffer[encoded_size - 1] = (uint8_t)(fecf & 0xff);
+    buffer[encoded_size - 2] = (uint8_t)((fecf >> 8) & 0xFFu);
+    buffer[encoded_size - 1] = (uint8_t)(fecf & 0xFFu);
 
     printf("Encoded frame size: %zu bytes\n", encoded_size);
     printf("Frame bytes: ");
@@ -131,8 +131,8 @@ int main(void)
     }
 
     uint16_t unlock_fecf = example_crc16(buffer, encoded_size - TC_FRAME_ERROR_CONTROL_SIZE);
-    buffer[encoded_size - 2] = (uint8_t)((unlock_fecf >> 8) & 0xff);
-    buffer[encoded_size - 1] = (uint8_t)(unlock_fecf & 0xff);
+    buffer[encoded_size - 2] = (uint8_t)((unlock_fecf >> 8) & 0xFFu);
+    buffer[encoded_size - 1] = (uint8_t)(unlock_fecf & 0xFFu);
 
     printf("Encoded frame size: %zu bytes\n", encoded_size);
 

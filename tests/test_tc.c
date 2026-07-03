@@ -13,7 +13,7 @@
 static int test_tc_create_frame_invalid_params(void)
 {
     sdlp_tc_frame_t frame;
-    uint8_t payload[1] = {0x55};
+    uint8_t payload[1] = {0x55u};
 
     ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tc_create_frame(NULL, 1, 1, 1, payload, 1));
     ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tc_create_frame(&frame, 1, 1, 1, NULL, 1));
@@ -28,13 +28,13 @@ static int test_tc_encode_decode_roundtrip(void)
 {
     sdlp_tc_frame_t frame;
     sdlp_tc_frame_t decoded;
-    const uint8_t payload[] = {0x01, 0x23, 0x45, 0x67};
+    const uint8_t payload[] = {0x01u, 0x23u, 0x45u, 0x67u};
     uint8_t encoded[TC_PRIMARY_HEADER_SIZE + TC_MAX_DATA_SIZE + TC_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
     ASSERT_EQ_INT(
         SDLP_SUCCESS,
-        sdlp_tc_create_frame(&frame, 0x7FF, 0x7F, 0x9A, payload, (uint16_t)sizeof(payload)));
+        sdlp_tc_create_frame(&frame, 0x7FFu, 0x7Fu, 0x9Au, payload, (uint16_t)sizeof(payload)));
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tc_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
 
@@ -43,9 +43,9 @@ static int test_tc_encode_decode_roundtrip(void)
 
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_decode_frame(encoded, encoded_size, &decoded));
     ASSERT_EQ_INT(SDLP_VERSION, decoded.header.transfer_frame_version);
-    ASSERT_EQ_INT((int)(0x7FF & 0x3FF), decoded.header.spacecraft_id);
-    ASSERT_EQ_INT((int)(0x7F & 0x3F), decoded.header.virtual_channel_id);
-    ASSERT_EQ_INT(0x9A, decoded.header.frame_sequence_number);
+    ASSERT_EQ_INT((int)(0x7FFu & 0x3FFu), decoded.header.spacecraft_id);
+    ASSERT_EQ_INT((int)(0x7Fu & 0x3Fu), decoded.header.virtual_channel_id);
+    ASSERT_EQ_INT(0x9Au, decoded.header.frame_sequence_number);
     /* Frame Length = total octets in the frame - 1 (CCSDS 232.0-B-4, 4.1.2.7.2). */
     ASSERT_EQ_INT(TC_PRIMARY_HEADER_SIZE + (int)sizeof(payload) + TC_FRAME_ERROR_CONTROL_SIZE - 1,
                   decoded.header.frame_length);
@@ -58,7 +58,7 @@ static int test_tc_encode_decode_roundtrip(void)
 static int test_tc_encode_buffer_too_small(void)
 {
     sdlp_tc_frame_t frame;
-    const uint8_t payload[] = {0xAB, 0xCD, 0xEF};
+    const uint8_t payload[] = {0xABu, 0xCDu, 0xEFu};
     uint8_t encoded[TC_PRIMARY_HEADER_SIZE + 2 + TC_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
@@ -74,25 +74,25 @@ static int test_tc_fecf_passthrough(void)
 {
     sdlp_tc_frame_t frame;
     sdlp_tc_frame_t decoded;
-    const uint8_t payload[] = {0x11, 0x22, 0x33, 0x44};
+    const uint8_t payload[] = {0x11u, 0x22u, 0x33u, 0x44u};
     uint8_t encoded[TC_PRIMARY_HEADER_SIZE + TC_MAX_DATA_SIZE + TC_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
     ASSERT_EQ_INT(
         SDLP_SUCCESS,
-        sdlp_tc_create_frame(&frame, 0x12, 0x05, 0x42, payload, (uint16_t)sizeof(payload)));
-    frame.fecf = 0x1234;
+        sdlp_tc_create_frame(&frame, 0x12u, 0x05u, 0x42u, payload, (uint16_t)sizeof(payload)));
+    frame.fecf = 0x1234u;
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tc_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
 
     /* The FECF is serialized verbatim (big-endian) in the trailing two bytes. */
-    ASSERT_EQ_INT(0x12, encoded[encoded_size - 2]);
-    ASSERT_EQ_INT(0x34, encoded[encoded_size - 1]);
+    ASSERT_EQ_INT(0x12u, encoded[encoded_size - 2]);
+    ASSERT_EQ_INT(0x34u, encoded[encoded_size - 1]);
 
     /* Decode no longer validates the FECF: it always succeeds and surfaces the
      * field as-is. */
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_decode_frame(encoded, encoded_size, &decoded));
-    ASSERT_EQ_INT(0x1234, decoded.fecf);
+    ASSERT_EQ_INT(0x1234u, decoded.fecf);
 
     return 0;
 }
@@ -101,18 +101,18 @@ static int test_tc_decode_invalid_frame_length(void)
 {
     sdlp_tc_frame_t frame;
     sdlp_tc_frame_t decoded;
-    const uint8_t payload[] = {0x01, 0x02, 0x03, 0x04};
+    const uint8_t payload[] = {0x01u, 0x02u, 0x03u, 0x04u};
     uint8_t encoded[TC_PRIMARY_HEADER_SIZE + TC_MAX_DATA_SIZE + TC_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
     ASSERT_EQ_INT(
         SDLP_SUCCESS,
-        sdlp_tc_create_frame(&frame, 0x21, 0x06, 0x07, payload, (uint16_t)sizeof(payload)));
+        sdlp_tc_create_frame(&frame, 0x21u, 0x06u, 0x07u, payload, (uint16_t)sizeof(payload)));
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tc_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
 
     /* Corrupt the Frame Length low byte so it no longer matches the octet count. */
-    encoded[3] ^= 0x01;
+    encoded[3] ^= 0x01u;
 
     ASSERT_EQ_INT(SDLP_ERROR_INVALID_FRAME, sdlp_tc_decode_frame(encoded, encoded_size, &decoded));
 
@@ -123,13 +123,13 @@ static int test_tc_frame_type_bd_roundtrip(void)
 {
     sdlp_tc_frame_t frame;
     sdlp_tc_frame_t decoded;
-    const uint8_t payload[] = {0x5A, 0xA5};
+    const uint8_t payload[] = {0x5Au, 0xA5u};
     uint8_t encoded[TC_PRIMARY_HEADER_SIZE + TC_MAX_DATA_SIZE + TC_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
     ASSERT_EQ_INT(
         SDLP_SUCCESS,
-        sdlp_tc_create_frame(&frame, 0x44, 0x02, 0x10, payload, (uint16_t)sizeof(payload)));
+        sdlp_tc_create_frame(&frame, 0x44u, 0x02u, 0x10u, payload, (uint16_t)sizeof(payload)));
     /* Default is Type-AD. */
     ASSERT_EQ_INT(0, frame.header.bypass_flag);
     ASSERT_EQ_INT(0, frame.header.control_command_flag);
@@ -151,7 +151,7 @@ static int test_tc_frame_type_bd_roundtrip(void)
 static int test_tc_set_frame_type_invalid(void)
 {
     sdlp_tc_frame_t frame;
-    const uint8_t payload[1] = {0x01};
+    const uint8_t payload[1] = {0x01u};
 
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_create_frame(&frame, 1, 1, 1, payload, 1));
     ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tc_set_frame_type(NULL, SDLP_TC_FRAME_TYPE_BD));
@@ -168,7 +168,7 @@ static int test_tc_unlock_command(void)
     uint8_t encoded[TC_PRIMARY_HEADER_SIZE + TC_MAX_DATA_SIZE + TC_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
-    ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_create_unlock_frame(&frame, 0x30, 0x01));
+    ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_create_unlock_frame(&frame, 0x30u, 0x01u));
     /* Type-BC: Bypass=1, Control Command=1 (table 4-1). */
     ASSERT_EQ_INT(1, frame.header.bypass_flag);
     ASSERT_EQ_INT(1, frame.header.control_command_flag);
@@ -201,7 +201,7 @@ static int test_tc_set_vr_command(void)
     uint8_t encoded[TC_PRIMARY_HEADER_SIZE + TC_MAX_DATA_SIZE + TC_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
-    ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_create_set_vr_frame(&frame, 0x30, 0x01, 0x7C));
+    ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_create_set_vr_frame(&frame, 0x30u, 0x01u, 0x7Cu));
     ASSERT_EQ_INT(1, frame.header.bypass_flag);
     ASSERT_EQ_INT(1, frame.header.control_command_flag);
     ASSERT_EQ_INT(0, frame.header.frame_sequence_number);
@@ -209,13 +209,13 @@ static int test_tc_set_vr_command(void)
     ASSERT_EQ_INT(TC_CONTROL_CMD_SET_VR_LENGTH, frame.data_length);
     ASSERT_EQ_INT(TC_CONTROL_CMD_SET_VR_OCTET0, frame.data[0]);
     ASSERT_EQ_INT(TC_CONTROL_CMD_SET_VR_OCTET1, frame.data[1]);
-    ASSERT_EQ_INT(0x7C, frame.data[2]);
+    ASSERT_EQ_INT(0x7Cu, frame.data[2]);
 
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tc_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_decode_frame(encoded, encoded_size, &decoded));
     ASSERT_EQ_INT(TC_CONTROL_CMD_SET_VR_LENGTH, decoded.data_length);
-    ASSERT_EQ_INT(0x7C, decoded.data[2]);
+    ASSERT_EQ_INT(0x7Cu, decoded.data[2]);
 
     return 0;
 }
@@ -224,13 +224,13 @@ static int test_tc_decode_reserved_frame_type(void)
 {
     sdlp_tc_frame_t frame;
     sdlp_tc_frame_t decoded;
-    const uint8_t payload[] = {0x01, 0x02};
+    const uint8_t payload[] = {0x01u, 0x02u};
     uint8_t encoded[TC_PRIMARY_HEADER_SIZE + TC_MAX_DATA_SIZE + TC_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
     ASSERT_EQ_INT(
         SDLP_SUCCESS,
-        sdlp_tc_create_frame(&frame, 0x11, 0x01, 0x01, payload, (uint16_t)sizeof(payload)));
+        sdlp_tc_create_frame(&frame, 0x11u, 0x01u, 0x01u, payload, (uint16_t)sizeof(payload)));
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tc_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
 

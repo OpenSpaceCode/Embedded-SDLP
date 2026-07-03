@@ -23,7 +23,7 @@
  */
 static inline uint16_t example_crc16(const uint8_t *data, size_t length)
 {
-    uint16_t crc = 0xFFFF;
+    uint16_t crc = 0xFFFFu;
 
     for (size_t i = 0; i < length; i++)
     {
@@ -31,9 +31,9 @@ static inline uint16_t example_crc16(const uint8_t *data, size_t length)
 
         for (int j = 0; j < 8; j++)
         {
-            if (crc & 0x8000)
+            if (crc & 0x8000u)
             {
-                crc = (crc << 1) ^ 0x1021;
+                crc = (crc << 1) ^ 0x1021u;
             }
             else
             {

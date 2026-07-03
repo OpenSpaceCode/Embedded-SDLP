@@ -38,9 +38,9 @@
 /** '11'; mandatory Segment Length Identifier when Sync Flag = 0 (§4.1.2.7.5.2). */
 #define TM_SEGMENT_LENGTH_ID_NO_SEGMENTATION 0x03u
 /** First Header Pointer: no Packet starts in the Data Field (§4.1.2.7.6.4). */
-#define TM_FIRST_HEADER_POINTER_NO_PACKET 0x07ffu
+#define TM_FIRST_HEADER_POINTER_NO_PACKET 0x07FFu
 /** First Header Pointer: Only Idle Data (OID) Transfer Frame (§4.1.2.7.6.5). */
-#define TM_FIRST_HEADER_POINTER_ONLY_IDLE 0x07feu
+#define TM_FIRST_HEADER_POINTER_ONLY_IDLE 0x07FEu
 /** @} */
 
 /**

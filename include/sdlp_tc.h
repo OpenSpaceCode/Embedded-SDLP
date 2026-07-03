@@ -64,10 +64,10 @@ typedef enum
  */
 typedef enum
 {
-    TC_SEQ_FLAG_CONTINUE = 0x00, /**< '00': continuing portion of an SDU on one MAP. */
-    TC_SEQ_FLAG_FIRST = 0x01,    /**< '01': first portion of an SDU on one MAP. */
-    TC_SEQ_FLAG_LAST = 0x02,     /**< '10': last portion of an SDU on one MAP. */
-    TC_SEQ_FLAG_NO_SEG = 0x03    /**< '11': no segmentation (complete SDU or multiple packets). */
+    TC_SEQ_FLAG_CONTINUE = 0x00u, /**< '00': continuing portion of an SDU on one MAP. */
+    TC_SEQ_FLAG_FIRST = 0x01u,    /**< '01': first portion of an SDU on one MAP. */
+    TC_SEQ_FLAG_LAST = 0x02u,     /**< '10': last portion of an SDU on one MAP. */
+    TC_SEQ_FLAG_NO_SEG = 0x03u    /**< '11': no segmentation (complete SDU or multiple packets). */
 } sdlp_tc_seq_flag_t;
 
 /**

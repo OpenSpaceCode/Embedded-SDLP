@@ -13,7 +13,7 @@
 static int test_tm_create_frame_invalid_params(void)
 {
     sdlp_tm_frame_t frame;
-    uint8_t payload[1] = {0xAA};
+    uint8_t payload[1] = {0xAAu};
 
     ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tm_create_frame(NULL, 1, 1, payload, 1));
     ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tm_create_frame(&frame, 1, 1, NULL, 1));
@@ -27,12 +27,12 @@ static int test_tm_encode_decode_roundtrip(void)
 {
     sdlp_tm_frame_t frame;
     sdlp_tm_frame_t decoded;
-    const uint8_t payload[] = {0x10, 0x20, 0x30, 0x40, 0x50};
+    const uint8_t payload[] = {0x10u, 0x20u, 0x30u, 0x40u, 0x50u};
     uint8_t encoded[TM_PRIMARY_HEADER_SIZE + TM_MAX_DATA_SIZE + TM_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
     ASSERT_EQ_INT(SDLP_SUCCESS,
-                  sdlp_tm_create_frame(&frame, 0x7FF, 0x1F, payload, (uint16_t)sizeof(payload)));
+                  sdlp_tm_create_frame(&frame, 0x7FFu, 0x1Fu, payload, (uint16_t)sizeof(payload)));
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tm_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
 
@@ -41,8 +41,8 @@ static int test_tm_encode_decode_roundtrip(void)
 
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_decode_frame(encoded, encoded_size, &decoded));
     ASSERT_EQ_INT(SDLP_VERSION, decoded.header.transfer_frame_version);
-    ASSERT_EQ_INT((int)(0x7FF & 0x3FF), decoded.header.spacecraft_id);
-    ASSERT_EQ_INT((int)(0x1F & 0x07), decoded.header.virtual_channel_id);
+    ASSERT_EQ_INT((int)(0x7FFu & 0x3FFu), decoded.header.spacecraft_id);
+    ASSERT_EQ_INT((int)(0x1Fu & 0x07u), decoded.header.virtual_channel_id);
     ASSERT_EQ_INT(frame.header.master_channel_frame_count,
                   decoded.header.master_channel_frame_count);
     ASSERT_EQ_INT((int)sizeof(payload), decoded.data_length);
@@ -66,18 +66,18 @@ static int test_tm_data_field_status_codec(void)
     status.sync_flag = 0;
     status.packet_order_flag = 0;
     status.segment_length_id = TM_SEGMENT_LENGTH_ID_NO_SEGMENTATION;
-    status.first_header_pointer = 0x123;
+    status.first_header_pointer = 0x123u;
 
     /* MSB-first layout: shf<<15 | slid<<11 | fhp = 0x8000 | 0x1800 | 0x123. */
     raw = sdlp_tm_pack_data_field_status(&status);
-    ASSERT_EQ_INT(0x9923, raw);
+    ASSERT_EQ_INT(0x9923u, raw);
 
     sdlp_tm_unpack_data_field_status(raw, &parsed);
     ASSERT_EQ_INT(1, parsed.secondary_header_flag);
     ASSERT_EQ_INT(0, parsed.sync_flag);
     ASSERT_EQ_INT(0, parsed.packet_order_flag);
     ASSERT_EQ_INT(TM_SEGMENT_LENGTH_ID_NO_SEGMENTATION, parsed.segment_length_id);
-    ASSERT_EQ_INT(0x123, parsed.first_header_pointer);
+    ASSERT_EQ_INT(0x123u, parsed.first_header_pointer);
 
     return 0;
 }
@@ -85,7 +85,7 @@ static int test_tm_data_field_status_codec(void)
 static int test_tm_encode_buffer_too_small(void)
 {
     sdlp_tm_frame_t frame;
-    const uint8_t payload[] = {0x01, 0x02, 0x03};
+    const uint8_t payload[] = {0x01u, 0x02u, 0x03u};
     uint8_t encoded[TM_PRIMARY_HEADER_SIZE + 2 + TM_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
@@ -101,24 +101,24 @@ static int test_tm_fecf_passthrough(void)
 {
     sdlp_tm_frame_t frame;
     sdlp_tm_frame_t decoded;
-    const uint8_t payload[] = {0xDE, 0xAD, 0xBE, 0xEF};
+    const uint8_t payload[] = {0xDEu, 0xADu, 0xBEu, 0xEFu};
     uint8_t encoded[TM_PRIMARY_HEADER_SIZE + TM_MAX_DATA_SIZE + TM_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tm_create_frame(&frame, 3, 2, payload, (uint16_t)sizeof(payload)));
-    frame.fecf = 0xABCD;
+    frame.fecf = 0xABCDu;
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tm_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
 
     /* The FECF is serialized verbatim (big-endian) in the trailing two bytes. */
-    ASSERT_EQ_INT(0xAB, encoded[encoded_size - 2]);
-    ASSERT_EQ_INT(0xCD, encoded[encoded_size - 1]);
+    ASSERT_EQ_INT(0xABu, encoded[encoded_size - 2]);
+    ASSERT_EQ_INT(0xCDu, encoded[encoded_size - 1]);
 
     /* Decode no longer validates the FECF: it always succeeds and surfaces the
      * field as-is. */
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_decode_frame(encoded, encoded_size, &decoded));
-    ASSERT_EQ_INT(0xABCD, decoded.fecf);
+    ASSERT_EQ_INT(0xABCDu, decoded.fecf);
 
     return 0;
 }
@@ -126,9 +126,9 @@ static int test_tm_fecf_passthrough(void)
 static int test_tm_frame_counts_per_channel(void)
 {
     sdlp_tm_frame_t f;
-    const uint8_t payload[1] = {0xA5};
-    const uint16_t scid_a = 0x055; /* SCIDs not used by other tests => fresh counters */
-    const uint16_t scid_b = 0x056;
+    const uint8_t payload[1] = {0xA5u};
+    const uint16_t scid_a = 0x055u; /* SCIDs not used by other tests => fresh counters */
+    const uint16_t scid_b = 0x056u;
 
     /* First frame on (SCID A, VC 0): both counts start at 0. */
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_create_frame(&f, scid_a, 0, payload, 1));
@@ -158,14 +158,14 @@ static int test_tm_secondary_header_roundtrip(void)
 {
     sdlp_tm_frame_t frame;
     sdlp_tm_frame_t decoded;
-    const uint8_t payload[] = {0x10, 0x20, 0x30};
-    const uint8_t sh_data[] = {0xAA, 0xBB, 0xCC, 0xDD};
+    const uint8_t payload[] = {0x10u, 0x20u, 0x30u};
+    const uint8_t sh_data[] = {0xAAu, 0xBBu, 0xCCu, 0xDDu};
     uint8_t encoded[TM_PRIMARY_HEADER_SIZE + TM_SECONDARY_HEADER_ID_SIZE +
                     TM_SECONDARY_HEADER_MAX_DATA + TM_MAX_DATA_SIZE + TM_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
     ASSERT_EQ_INT(SDLP_SUCCESS,
-                  sdlp_tm_create_frame(&frame, 0x100, 1, payload, (uint16_t)sizeof(payload)));
+                  sdlp_tm_create_frame(&frame, 0x100u, 1, payload, (uint16_t)sizeof(payload)));
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tm_set_secondary_header(&frame, sh_data, (uint8_t)sizeof(sh_data)));
     ASSERT_EQ_INT(1, frame.header.transfer_frame_data_field_status.secondary_header_flag);
@@ -191,8 +191,8 @@ static int test_tm_secondary_header_roundtrip(void)
 static int test_tm_set_secondary_header_invalid(void)
 {
     sdlp_tm_frame_t frame;
-    const uint8_t payload[1] = {0x01};
-    const uint8_t sh_data[1] = {0xFF};
+    const uint8_t payload[1] = {0x01u};
+    const uint8_t sh_data[1] = {0xFFu};
 
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_create_frame(&frame, 1, 0, payload, 1));
     ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tm_set_secondary_header(NULL, sh_data, 1));
@@ -210,14 +210,14 @@ static int test_tm_ocf_roundtrip(void)
 {
     sdlp_tm_frame_t frame;
     sdlp_tm_frame_t decoded;
-    const uint8_t payload[] = {0x10, 0x20, 0x30};
-    const uint8_t ocf[TM_OCF_SIZE] = {0x01, 0x02, 0x03, 0x04};
+    const uint8_t payload[] = {0x10u, 0x20u, 0x30u};
+    const uint8_t ocf[TM_OCF_SIZE] = {0x01u, 0x02u, 0x03u, 0x04u};
     uint8_t encoded[TM_PRIMARY_HEADER_SIZE + TM_MAX_DATA_SIZE + TM_OCF_SIZE +
                     TM_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
     ASSERT_EQ_INT(SDLP_SUCCESS,
-                  sdlp_tm_create_frame(&frame, 0x101, 1, payload, (uint16_t)sizeof(payload)));
+                  sdlp_tm_create_frame(&frame, 0x101u, 1, payload, (uint16_t)sizeof(payload)));
     /* No OCF by default. */
     ASSERT_EQ_INT(0, frame.header.ocf_flag);
 
@@ -245,16 +245,16 @@ static int test_tm_secondary_header_and_ocf_roundtrip(void)
 {
     sdlp_tm_frame_t frame;
     sdlp_tm_frame_t decoded;
-    const uint8_t payload[] = {0xAA, 0xBB};
-    const uint8_t sh_data[] = {0x11, 0x22, 0x33};
-    const uint8_t ocf[TM_OCF_SIZE] = {0xDE, 0xAD, 0xBE, 0xEF};
+    const uint8_t payload[] = {0xAAu, 0xBBu};
+    const uint8_t sh_data[] = {0x11u, 0x22u, 0x33u};
+    const uint8_t ocf[TM_OCF_SIZE] = {0xDEu, 0xADu, 0xBEu, 0xEFu};
     uint8_t encoded[TM_PRIMARY_HEADER_SIZE + TM_SECONDARY_HEADER_ID_SIZE +
                     TM_SECONDARY_HEADER_MAX_DATA + TM_MAX_DATA_SIZE + TM_OCF_SIZE +
                     TM_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
 
     ASSERT_EQ_INT(SDLP_SUCCESS,
-                  sdlp_tm_create_frame(&frame, 0x102, 2, payload, (uint16_t)sizeof(payload)));
+                  sdlp_tm_create_frame(&frame, 0x102u, 2, payload, (uint16_t)sizeof(payload)));
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tm_set_secondary_header(&frame, sh_data, (uint8_t)sizeof(sh_data)));
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_set_ocf(&frame, ocf));
@@ -280,7 +280,7 @@ static int test_tm_secondary_header_and_ocf_roundtrip(void)
 static int test_tm_set_ocf_invalid(void)
 {
     sdlp_tm_frame_t frame;
-    const uint8_t payload[1] = {0x01};
+    const uint8_t payload[1] = {0x01u};
     const uint8_t ocf[TM_OCF_SIZE] = {0};
 
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_create_frame(&frame, 1, 0, payload, 1));

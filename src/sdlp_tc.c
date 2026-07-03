@@ -56,8 +56,8 @@ int sdlp_tc_create_frame(sdlp_tc_frame_t *frame,
     frame->header.bypass_flag = 0;
     frame->header.control_command_flag = 0;
     frame->header.reserved = 0;
-    frame->header.spacecraft_id = (uint16_t)(spacecraft_id & 0x3ffu);
-    frame->header.virtual_channel_id = (uint8_t)(virtual_channel_id & 0x3fu);
+    frame->header.spacecraft_id = (uint16_t)(spacecraft_id & 0x3FFu);
+    frame->header.virtual_channel_id = (uint8_t)(virtual_channel_id & 0x3Fu);
     frame->header.frame_sequence_number = frame_seq_num;
 
     memcpy(frame->data, data, data_length);
@@ -185,17 +185,17 @@ int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame,
                                  ((frame->header.control_command_flag & 0x01u) << 4) |
                                  ((frame->header.reserved & 0x03u) << 2) |
                                  ((frame->header.spacecraft_id >> 8) & 0x03u));
-    buffer[offset++] = (uint8_t)(frame->header.spacecraft_id & 0xffu);
-    buffer[offset++] = (uint8_t)(((frame->header.virtual_channel_id & 0x3fu) << 2) |
+    buffer[offset++] = (uint8_t)(frame->header.spacecraft_id & 0xFFu);
+    buffer[offset++] = (uint8_t)(((frame->header.virtual_channel_id & 0x3Fu) << 2) |
                                  ((frame_length >> 8) & 0x03u));
-    buffer[offset++] = (uint8_t)(frame_length & 0xffu);
+    buffer[offset++] = (uint8_t)(frame_length & 0xFFu);
     buffer[offset++] = frame->header.frame_sequence_number;
 
 #ifdef TC_SEGMENT_HEADER_ENABLED
     if (!frame->header.control_command_flag)
     {
         buffer[offset++] = (uint8_t)(((frame->segment_header.sequence_flags & 0x03u) << 6) |
-                                     (frame->segment_header.map_id & 0x3fu));
+                                     (frame->segment_header.map_id & 0x3Fu));
     }
 #endif
 
@@ -204,8 +204,8 @@ int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame,
 
     /* The Frame Error Control Field is passed through verbatim; computing an
      * error-control value (e.g. CRC-16) is left to the application. */
-    buffer[offset++] = (uint8_t)((frame->fecf >> 8) & 0xffu);
-    buffer[offset++] = (uint8_t)(frame->fecf & 0xffu);
+    buffer[offset++] = (uint8_t)((frame->fecf >> 8) & 0xFFu);
+    buffer[offset++] = (uint8_t)(frame->fecf & 0xFFu);
 
     *encoded_size = offset;
 
@@ -238,7 +238,7 @@ int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tc_fram
         return SDLP_ERROR_INVALID_FRAME;
     }
 
-    frame->header.virtual_channel_id = (uint8_t)((buffer[offset] >> 2) & 0x3fu);
+    frame->header.virtual_channel_id = (uint8_t)((buffer[offset] >> 2) & 0x3Fu);
     frame->header.frame_length =
         (uint16_t)((((uint16_t)buffer[offset] & 0x03u) << 8) | (uint16_t)buffer[offset + 1]);
     offset += 2;
@@ -260,7 +260,7 @@ int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tc_fram
             return SDLP_ERROR_INVALID_FRAME;
         }
         frame->segment_header.sequence_flags = (uint8_t)((buffer[offset] >> 6) & 0x03u);
-        frame->segment_header.map_id = (uint8_t)(buffer[offset] & 0x3fu);
+        frame->segment_header.map_id = (uint8_t)(buffer[offset] & 0x3Fu);
         offset++;
         frame->data_length = (uint16_t)(buffer_size - TC_PRIMARY_HEADER_SIZE -
                                         TC_SEGMENT_HEADER_SIZE - TC_FRAME_ERROR_CONTROL_SIZE);
@@ -300,7 +300,7 @@ int sdlp_tc_set_segment_header(sdlp_tc_frame_t *frame,
         return SDLP_ERROR_INVALID_PARAM;
     }
     frame->segment_header.sequence_flags = (uint8_t)(sequence_flags & 0x03u);
-    frame->segment_header.map_id = (uint8_t)(map_id & 0x3fu);
+    frame->segment_header.map_id = (uint8_t)(map_id & 0x3Fu);
     return SDLP_SUCCESS;
 }
 #endif

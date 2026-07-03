@@ -81,7 +81,7 @@ uint16_t sdlp_tm_pack_data_field_status(const sdlp_tm_data_field_status_t *statu
                       ((uint16_t)(status->sync_flag & 0x01u) << 14) |
                       ((uint16_t)(status->packet_order_flag & 0x01u) << 13) |
                       ((uint16_t)(status->segment_length_id & 0x03u) << 11) |
-                      ((uint16_t)(status->first_header_pointer & 0x07ffu)));
+                      ((uint16_t)(status->first_header_pointer & 0x07FFu)));
 }
 
 void sdlp_tm_unpack_data_field_status(uint16_t raw, sdlp_tm_data_field_status_t *status)
@@ -94,7 +94,7 @@ void sdlp_tm_unpack_data_field_status(uint16_t raw, sdlp_tm_data_field_status_t 
     status->sync_flag = (uint8_t)((raw >> 14) & 0x01u);
     status->packet_order_flag = (uint8_t)((raw >> 13) & 0x01u);
     status->segment_length_id = (uint8_t)((raw >> 11) & 0x03u);
-    status->first_header_pointer = (uint16_t)(raw & 0x07ffu);
+    status->first_header_pointer = (uint16_t)(raw & 0x07FFu);
 }
 
 int sdlp_tm_create_frame(sdlp_tm_frame_t *frame,
@@ -110,7 +110,7 @@ int sdlp_tm_create_frame(sdlp_tm_frame_t *frame,
 
     memset(frame, 0, sizeof(sdlp_tm_frame_t));
 
-    uint16_t scid = (uint16_t)(spacecraft_id & 0x3ffu);
+    uint16_t scid = (uint16_t)(spacecraft_id & 0x3FFu);
     uint8_t vcid = (uint8_t)(virtual_channel_id & 0x07u);
     tm_master_channel_t *mc = tm_get_master_channel(scid);
 
@@ -207,8 +207,8 @@ int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame,
     size_t offset = 0;
 
     buffer[offset++] = (uint8_t)((frame->header.transfer_frame_version << 6) |
-                                 ((frame->header.spacecraft_id >> 4) & 0x3fu));
-    buffer[offset++] = (uint8_t)(((frame->header.spacecraft_id & 0x0fu) << 4) |
+                                 ((frame->header.spacecraft_id >> 4) & 0x3Fu));
+    buffer[offset++] = (uint8_t)(((frame->header.spacecraft_id & 0x0Fu) << 4) |
                                  ((frame->header.virtual_channel_id & 0x07u) << 1) |
                                  (frame->header.ocf_flag & 0x01u));
     buffer[offset++] = frame->header.master_channel_frame_count;
@@ -216,15 +216,15 @@ int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame,
 
     uint16_t data_field_status =
         sdlp_tm_pack_data_field_status(&frame->header.transfer_frame_data_field_status);
-    buffer[offset++] = (uint8_t)((data_field_status >> 8) & 0xffu);
-    buffer[offset++] = (uint8_t)(data_field_status & 0xffu);
+    buffer[offset++] = (uint8_t)((data_field_status >> 8) & 0xFFu);
+    buffer[offset++] = (uint8_t)(data_field_status & 0xFFu);
 
     /* Transfer Frame Secondary Header (CCSDS 132.0-B-3, 4.1.3): Identification Field
      * (Version '00' | Length = total size - 1 = Data Field length) then the Data Field. */
     if (secondary_header_present)
     {
         buffer[offset++] = (uint8_t)(((frame->secondary_header.version & 0x03u) << 6) |
-                                     (frame->secondary_header.length & 0x3fu));
+                                     (frame->secondary_header.length & 0x3Fu));
         memcpy(&buffer[offset], frame->secondary_header.data, frame->secondary_header.length);
         offset += frame->secondary_header.length;
     }
@@ -242,8 +242,8 @@ int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame,
 
     /* The Frame Error Control Field is passed through verbatim; computing an
      * error-control value (e.g. CRC-16) is left to the application. */
-    buffer[offset++] = (uint8_t)((frame->fecf >> 8) & 0xffu);
-    buffer[offset++] = (uint8_t)(frame->fecf & 0xffu);
+    buffer[offset++] = (uint8_t)((frame->fecf >> 8) & 0xFFu);
+    buffer[offset++] = (uint8_t)(frame->fecf & 0xFFu);
 
     *encoded_size = offset;
 
@@ -263,7 +263,7 @@ int sdlp_tm_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tm_fram
 
     frame->header.transfer_frame_version = (uint8_t)((buffer[offset] >> 6) & 0x03u);
     frame->header.spacecraft_id =
-        (uint16_t)(((buffer[offset] & 0x3fu) << 4) | ((buffer[offset + 1] >> 4) & 0x0fu));
+        (uint16_t)(((buffer[offset] & 0x3Fu) << 4) | ((buffer[offset + 1] >> 4) & 0x0Fu));
     offset++;
 
     frame->header.virtual_channel_id = (uint8_t)((buffer[offset] >> 1) & 0x07u);
@@ -293,7 +293,7 @@ int sdlp_tm_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tm_fram
         }
 
         frame->secondary_header.version = (uint8_t)((buffer[offset] >> 6) & 0x03u);
-        sh_length = (uint8_t)(buffer[offset] & 0x3fu); /* total size - 1 = Data Field length */
+        sh_length = (uint8_t)(buffer[offset] & 0x3Fu); /* total size - 1 = Data Field length */
         if (sh_length == 0u)
         {
             return SDLP_ERROR_INVALID_FRAME;
