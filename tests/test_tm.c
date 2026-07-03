@@ -292,6 +292,75 @@ static int test_tm_set_ocf_invalid(void)
     return 0;
 }
 
+static int test_tm_null_params(void)
+{
+    sdlp_tm_frame_t frame;
+    sdlp_tm_frame_t decoded;
+    const uint8_t payload[1] = {0x01u};
+    uint8_t buffer[16] = {0};
+    size_t encoded_size = 0;
+
+    /* The Data Field Status codec tolerates NULL. */
+    ASSERT_EQ_INT(0, sdlp_tm_pack_data_field_status(NULL));
+    sdlp_tm_unpack_data_field_status(0x1234u, NULL); /* must not dereference NULL */
+
+    ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tm_create_frame(&frame, 1, 1, payload, 1));
+
+    /* encode rejects each NULL argument. */
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tm_encode_frame(NULL, buffer, sizeof(buffer), &encoded_size));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tm_encode_frame(&frame, NULL, sizeof(buffer), &encoded_size));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tm_encode_frame(&frame, buffer, sizeof(buffer), NULL));
+
+    /* decode rejects a NULL buffer, a NULL frame, and a buffer shorter than the header + FECF. */
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tm_decode_frame(NULL, sizeof(buffer), &decoded));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tm_decode_frame(buffer, sizeof(buffer), NULL));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tm_decode_frame(buffer, TM_PRIMARY_HEADER_SIZE + TM_FRAME_ERROR_CONTROL_SIZE - 1,
+                                       &decoded));
+
+    return 0;
+}
+
+static int test_tm_decode_malformed(void)
+{
+    sdlp_tm_frame_t decoded;
+
+    /* Secondary Header Flag set (byte 4 bit 7), buffer too small for the Identification
+     * Field plus a Data Field octet. */
+    {
+        uint8_t buf[9] = {0, 0, 0, 0, 0x80u};
+        ASSERT_EQ_INT(SDLP_ERROR_INVALID_FRAME, sdlp_tm_decode_frame(buf, sizeof(buf), &decoded));
+    }
+    /* Secondary Header present but its Length field is zero (empty Data Field). */
+    {
+        uint8_t buf[10] = {0, 0, 0, 0, 0x80u};
+        ASSERT_EQ_INT(SDLP_ERROR_INVALID_FRAME, sdlp_tm_decode_frame(buf, sizeof(buf), &decoded));
+    }
+    /* Secondary Header Length overruns the remaining buffer. */
+    {
+        uint8_t buf[10] = {0, 0, 0, 0, 0x80u, 0, 0x0Au};
+        ASSERT_EQ_INT(SDLP_ERROR_INVALID_FRAME, sdlp_tm_decode_frame(buf, sizeof(buf), &decoded));
+    }
+    /* OCF Flag set (byte 1 bit 0), buffer too small to hold the 4-octet OCF. */
+    {
+        uint8_t buf[8] = {0, 0x01u};
+        ASSERT_EQ_INT(SDLP_ERROR_INVALID_FRAME, sdlp_tm_decode_frame(buf, sizeof(buf), &decoded));
+    }
+    /* Data Field larger than TM_MAX_DATA_SIZE. */
+    {
+        static uint8_t big[TM_PRIMARY_HEADER_SIZE + TM_MAX_DATA_SIZE + 1 +
+                           TM_FRAME_ERROR_CONTROL_SIZE] = {0};
+        ASSERT_EQ_INT(SDLP_ERROR_INVALID_FRAME, sdlp_tm_decode_frame(big, sizeof(big), &decoded));
+    }
+
+    return 0;
+}
+
 test_result_t test_tm_run_all(void)
 {
     test_result_t result;
@@ -307,6 +376,8 @@ test_result_t test_tm_run_all(void)
     RUN_TEST(test_tm_ocf_roundtrip);
     RUN_TEST(test_tm_secondary_header_and_ocf_roundtrip);
     RUN_TEST(test_tm_set_ocf_invalid);
+    RUN_TEST(test_tm_null_params);
+    RUN_TEST(test_tm_decode_malformed);
 
     /* cunit's counters have internal linkage, so this translation unit tallies
      * only its own tests. */

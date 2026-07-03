@@ -134,6 +134,11 @@ static int test_tc_frame_type_bd_roundtrip(void)
     ASSERT_EQ_INT(0, frame.header.bypass_flag);
     ASSERT_EQ_INT(0, frame.header.control_command_flag);
 
+    /* Explicitly selecting Type-AD keeps both flags clear. */
+    ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_set_frame_type(&frame, SDLP_TC_FRAME_TYPE_AD));
+    ASSERT_EQ_INT(0, frame.header.bypass_flag);
+    ASSERT_EQ_INT(0, frame.header.control_command_flag);
+
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_set_frame_type(&frame, SDLP_TC_FRAME_TYPE_BD));
     ASSERT_EQ_INT(1, frame.header.bypass_flag);
     ASSERT_EQ_INT(0, frame.header.control_command_flag);
@@ -242,11 +247,46 @@ static int test_tc_decode_reserved_frame_type(void)
     return 0;
 }
 
+static int test_tc_null_params(void)
+{
+    sdlp_tc_frame_t frame;
+    sdlp_tc_frame_t decoded;
+    const uint8_t payload[1] = {0x01u};
+    uint8_t buffer[16] = {0};
+    size_t encoded_size = 0;
+
+    /* The control-command builders reject a NULL frame (create fails, error propagates). */
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tc_create_unlock_frame(NULL, 1, 1));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tc_create_set_vr_frame(NULL, 1, 1, 0));
+
+    ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_create_frame(&frame, 1, 1, 1, payload, 1));
+
+    /* encode rejects each NULL argument. */
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tc_encode_frame(NULL, buffer, sizeof(buffer), &encoded_size));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tc_encode_frame(&frame, NULL, sizeof(buffer), &encoded_size));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tc_encode_frame(&frame, buffer, sizeof(buffer), NULL));
+
+    /* decode rejects a NULL buffer, a NULL frame, and a buffer shorter than the header + FECF. */
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tc_decode_frame(NULL, sizeof(buffer), &decoded));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tc_decode_frame(buffer, sizeof(buffer), NULL));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tc_decode_frame(buffer, TC_PRIMARY_HEADER_SIZE + TC_FRAME_ERROR_CONTROL_SIZE - 1,
+                                       &decoded));
+
+    return 0;
+}
+
 test_result_t test_tc_run_all(void)
 {
     test_result_t result;
 
     RUN_TEST(test_tc_create_frame_invalid_params);
+    RUN_TEST(test_tc_null_params);
     RUN_TEST(test_tc_encode_decode_roundtrip);
     RUN_TEST(test_tc_encode_buffer_too_small);
     RUN_TEST(test_tc_fecf_passthrough);

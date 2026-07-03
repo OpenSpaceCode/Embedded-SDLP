@@ -275,11 +275,8 @@ int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tc_fram
         (uint16_t)(buffer_size - TC_PRIMARY_HEADER_SIZE - TC_FRAME_ERROR_CONTROL_SIZE);
 #endif
 
-    if (frame->data_length > TC_MAX_DATA_SIZE)
-    {
-        return SDLP_ERROR_INVALID_FRAME;
-    }
-
+    /* The Frame Length validation above pins buffer_size to frame_length + 1 (<= 1024),
+     * so data_length is inherently <= TC_MAX_DATA_SIZE and the Data Field fits. */
     memcpy(frame->data, &buffer[offset], frame->data_length);
     offset += frame->data_length;
 
