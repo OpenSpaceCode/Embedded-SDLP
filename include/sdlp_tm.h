@@ -58,11 +58,12 @@ extern "C"
  */
 typedef struct
 {
-    uint8_t secondary_header_flag; /**< Presence of the Transfer Frame Secondary Header. */
-    uint8_t sync_flag;             /**< 0 = Packets/Idle Data, 1 = VCA_SDU. */
-    uint8_t packet_order_flag;     /**< Reserved ('0') when sync_flag = 0. */
-    uint8_t segment_length_id;     /**< 2 bits; '11' when sync_flag = 0. */
-    uint16_t first_header_pointer; /**< 11 bits; offset of the first Packet or a special value. */
+    uint16_t secondary_header_flag : 1; /**< Presence of the Transfer Frame Secondary Header. */
+    uint16_t sync_flag : 1;             /**< 0 = Packets/Idle Data, 1 = VCA_SDU. */
+    uint16_t packet_order_flag : 1;     /**< Reserved ('0') when sync_flag = 0. */
+    uint16_t segment_length_id : 2;     /**< 2 bits; '11' when sync_flag = 0. */
+    uint16_t first_header_pointer
+        : 11; /**< 11 bits; offset of the first Packet or a special value. */
 } sdlp_tm_data_field_status_t;
 
 /**
@@ -91,8 +92,8 @@ typedef struct
  */
 typedef struct
 {
-    uint8_t version;                            /**< Secondary Header Version Number ('00'). */
-    uint8_t length;                             /**< Data Field length (1..63); 0 = absent. */
+    uint8_t version : 2;                        /**< Secondary Header Version Number ('00'). */
+    uint8_t length : 6;                         /**< Data Field length (1..63); 0 = absent. */
     uint8_t data[TM_SECONDARY_HEADER_MAX_DATA]; /**< Secondary Header Data Field. */
 } sdlp_tm_secondary_header_t;
 
