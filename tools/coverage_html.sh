@@ -25,40 +25,28 @@ COV_DIR="${ROOT_DIR}/build/coverage"
 rm -rf "${COV_DIR}"
 mkdir -p "$(dirname "${OUT_FILE}")" "${COV_DIR}"
 
-# Build, run, and capture coverage for one configuration. Sources and tests are
-# compiled together so definition flags (e.g. TC_SEGMENT_HEADER_ENABLED) affect both.
-# Args: <variant-name> [extra compiler flags...]
-run_variant() {
-  variant="$1"
-  shift
-  work="${COV_DIR}/${variant}"
-  mkdir -p "${work}"
-  objs=""
-  for f in ${SRCS} ${TESTS}; do
-    obj="${work}/$(basename "${f%.c}").o"
-    # shellcheck disable=SC2086
-    gcc ${COVERAGE_CFLAGS} "$@" -c "${f}" -o "${obj}"
-    objs="${objs} ${obj}"
-  done
+# Build the unit tests with coverage instrumentation. Sources and tests are compiled
+# together with TC_SEGMENT_HEADER_ENABLED so the segment-header code paths are built
+# and exercised (matching how `make test` runs them).
+objs=""
+for f in ${SRCS} ${TESTS}; do
+  obj="${COV_DIR}/$(basename "${f%.c}").o"
   # shellcheck disable=SC2086
-  gcc --coverage ${objs} -o "${work}/unit_tests"
-  "${work}/unit_tests" >/dev/null
-  gcovr --root "${ROOT_DIR}" --filter "${ROOT_DIR}/src" \
-    --gcov-object-directory "${work}" \
-    --json "${COV_DIR}/${variant}.json"
-}
+  gcc ${COVERAGE_CFLAGS} -DTC_SEGMENT_HEADER_ENABLED -c "${f}" -o "${obj}"
+  objs="${objs} ${obj}"
+done
+# shellcheck disable=SC2086
+gcc --coverage ${objs} -o "${COV_DIR}/unit_tests"
+"${COV_DIR}/unit_tests" >/dev/null
 
-# The unit tests always run with TC_SEGMENT_HEADER_ENABLED, so coverage is gathered
-# for that single configuration.
-run_variant segment -DTC_SEGMENT_HEADER_ENABLED
-
-REPORT_ARGS=(--root "${ROOT_DIR}" --filter "${ROOT_DIR}/src"
-            -a "${COV_DIR}/segment.json")
-
-gcovr "${REPORT_ARGS[@]}" --html --html-details --output "${OUT_FILE}"
-
+# Emit the HTML report and a text summary (line + branch) in a single gcovr pass, so
+# the console output is not duplicated. gcovr's chatty "(INFO)" progress lines are
+# filtered from stderr; warnings and errors still pass through and preserve the exit code.
 echo "Coverage (TC_SEGMENT_HEADER_ENABLED):"
-gcovr "${REPORT_ARGS[@]}" --txt --txt-metric line
-gcovr "${REPORT_ARGS[@]}" --txt --txt-metric branch
+gcovr --root "${ROOT_DIR}" --filter "${ROOT_DIR}/src" \
+      --gcov-object-directory "${COV_DIR}" \
+      --html-details --output "${OUT_FILE}" \
+      --txt - --txt-summary \
+  2> >(grep -v '^(INFO)' >&2)
 
 echo "Coverage HTML report written to: ${OUT_FILE}"
