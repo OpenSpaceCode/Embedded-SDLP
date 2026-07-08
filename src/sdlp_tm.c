@@ -97,11 +97,11 @@ void sdlp_tm_unpack_data_field_status(uint16_t raw, sdlp_tm_data_field_status_t 
     status->first_header_pointer = (uint16_t)(raw & 0x07FFu);
 }
 
-int sdlp_tm_create_frame(sdlp_tm_frame_t *frame,
-                         uint16_t spacecraft_id,
-                         uint8_t virtual_channel_id,
-                         const uint8_t *data,
-                         uint16_t data_length)
+sdlp_status_t sdlp_tm_create_frame(sdlp_tm_frame_t *frame,
+                                   uint16_t spacecraft_id,
+                                   uint8_t virtual_channel_id,
+                                   const uint8_t *data,
+                                   uint16_t data_length)
 {
     if (!frame || !data || data_length > TM_MAX_DATA_SIZE)
     {
@@ -145,7 +145,9 @@ int sdlp_tm_create_frame(sdlp_tm_frame_t *frame,
     return SDLP_SUCCESS;
 }
 
-int sdlp_tm_set_secondary_header(sdlp_tm_frame_t *frame, const uint8_t *data, uint8_t length)
+sdlp_status_t sdlp_tm_set_secondary_header(sdlp_tm_frame_t *frame,
+                                           const uint8_t *data,
+                                           uint8_t length)
 {
     if (!frame || !data || length == 0u || length > TM_SECONDARY_HEADER_MAX_DATA)
     {
@@ -160,7 +162,7 @@ int sdlp_tm_set_secondary_header(sdlp_tm_frame_t *frame, const uint8_t *data, ui
     return SDLP_SUCCESS;
 }
 
-int sdlp_tm_set_ocf(sdlp_tm_frame_t *frame, const uint8_t ocf[TM_OCF_SIZE])
+sdlp_status_t sdlp_tm_set_ocf(sdlp_tm_frame_t *frame, const uint8_t ocf[TM_OCF_SIZE])
 {
     if (!frame || !ocf)
     {
@@ -173,10 +175,10 @@ int sdlp_tm_set_ocf(sdlp_tm_frame_t *frame, const uint8_t ocf[TM_OCF_SIZE])
     return SDLP_SUCCESS;
 }
 
-int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame,
-                         uint8_t *buffer,
-                         size_t buffer_size,
-                         size_t *encoded_size)
+sdlp_status_t sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame,
+                                   uint8_t *buffer,
+                                   size_t buffer_size,
+                                   size_t *encoded_size)
 {
     if (!frame || !buffer || !encoded_size)
     {
@@ -250,7 +252,9 @@ int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame,
     return SDLP_SUCCESS;
 }
 
-int sdlp_tm_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tm_frame_t *frame)
+sdlp_status_t sdlp_tm_decode_frame(const uint8_t *buffer,
+                                   size_t buffer_size,
+                                   sdlp_tm_frame_t *frame)
 {
     if (!buffer || !frame || buffer_size < TM_PRIMARY_HEADER_SIZE + TM_FRAME_ERROR_CONTROL_SIZE)
     {

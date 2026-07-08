@@ -131,12 +131,12 @@ typedef struct
  *                                Segment Header).
  * @return ::SDLP_SUCCESS, or ::SDLP_ERROR_INVALID_PARAM on NULL args or bad length.
  */
-int sdlp_tc_create_frame(sdlp_tc_frame_t *frame,
-                         uint16_t spacecraft_id,
-                         uint8_t virtual_channel_id,
-                         uint8_t frame_seq_num,
-                         const uint8_t *data,
-                         uint16_t data_length);
+sdlp_status_t sdlp_tc_create_frame(sdlp_tc_frame_t *frame,
+                                   uint16_t spacecraft_id,
+                                   uint8_t virtual_channel_id,
+                                   uint8_t frame_seq_num,
+                                   const uint8_t *data,
+                                   uint16_t data_length);
 
 /**
  * @brief Select the Transfer Frame type by setting the Bypass/Control Command Flags (§4.1.2.3).
@@ -148,7 +148,7 @@ int sdlp_tc_create_frame(sdlp_tc_frame_t *frame,
  * @param[in]  type  Desired frame type.
  * @return ::SDLP_SUCCESS, or ::SDLP_ERROR_INVALID_PARAM on a NULL frame or unknown type.
  */
-int sdlp_tc_set_frame_type(sdlp_tc_frame_t *frame, sdlp_tc_frame_type_t type);
+sdlp_status_t sdlp_tc_set_frame_type(sdlp_tc_frame_t *frame, sdlp_tc_frame_type_t type);
 
 /**
  * @brief Build a complete Type-BC frame carrying the Unlock Control Command (§4.1.3.3.2).
@@ -160,9 +160,9 @@ int sdlp_tc_set_frame_type(sdlp_tc_frame_t *frame, sdlp_tc_frame_type_t type);
  * @param[in]  virtual_channel_id Virtual Channel Identifier — masked to 6 bits.
  * @return ::SDLP_SUCCESS, or ::SDLP_ERROR_INVALID_PARAM on a NULL frame.
  */
-int sdlp_tc_create_unlock_frame(sdlp_tc_frame_t *frame,
-                                uint16_t spacecraft_id,
-                                uint8_t virtual_channel_id);
+sdlp_status_t sdlp_tc_create_unlock_frame(sdlp_tc_frame_t *frame,
+                                          uint16_t spacecraft_id,
+                                          uint8_t virtual_channel_id);
 
 /**
  * @brief Build a complete Type-BC frame carrying the Set V(R) Control Command (§4.1.3.3.3).
@@ -173,10 +173,10 @@ int sdlp_tc_create_unlock_frame(sdlp_tc_frame_t *frame,
  * @param[in]  vr                 Value the FARM should load into Receiver_Frame_Sequence_Number.
  * @return ::SDLP_SUCCESS, or ::SDLP_ERROR_INVALID_PARAM on a NULL frame.
  */
-int sdlp_tc_create_set_vr_frame(sdlp_tc_frame_t *frame,
-                                uint16_t spacecraft_id,
-                                uint8_t virtual_channel_id,
-                                uint8_t vr);
+sdlp_status_t sdlp_tc_create_set_vr_frame(sdlp_tc_frame_t *frame,
+                                          uint16_t spacecraft_id,
+                                          uint8_t virtual_channel_id,
+                                          uint8_t vr);
 
 /**
  * @brief Serialise a TC Transfer Frame into a caller-supplied buffer.
@@ -191,10 +191,10 @@ int sdlp_tc_create_set_vr_frame(sdlp_tc_frame_t *frame,
  * @param[out] encoded_size Bytes written on success.
  * @return ::SDLP_SUCCESS, ::SDLP_ERROR_INVALID_PARAM, or ::SDLP_ERROR_BUFFER_TOO_SMALL.
  */
-int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame,
-                         uint8_t *buffer,
-                         size_t buffer_size,
-                         size_t *encoded_size);
+sdlp_status_t sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame,
+                                   uint8_t *buffer,
+                                   size_t buffer_size,
+                                   size_t *encoded_size);
 
 /**
  * @brief Parse a wire-format TC Transfer Frame.
@@ -207,7 +207,9 @@ int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame,
  * @param[out] frame       Decoded frame.
  * @return ::SDLP_SUCCESS, ::SDLP_ERROR_INVALID_PARAM, or ::SDLP_ERROR_INVALID_FRAME.
  */
-int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tc_frame_t *frame);
+sdlp_status_t sdlp_tc_decode_frame(const uint8_t *buffer,
+                                   size_t buffer_size,
+                                   sdlp_tc_frame_t *frame);
 
 #ifdef TC_SEGMENT_HEADER_ENABLED
 /**
@@ -220,9 +222,9 @@ int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tc_fram
  * @param[in]  map_id         Multiplexer Access Point Identifier (0-63).
  * @return ::SDLP_SUCCESS, or ::SDLP_ERROR_INVALID_PARAM on a NULL frame.
  */
-int sdlp_tc_set_segment_header(sdlp_tc_frame_t *frame,
-                               sdlp_tc_seq_flag_t sequence_flags,
-                               uint8_t map_id);
+sdlp_status_t sdlp_tc_set_segment_header(sdlp_tc_frame_t *frame,
+                                         sdlp_tc_seq_flag_t sequence_flags,
+                                         uint8_t map_id);
 #endif
 
 #ifdef __cplusplus

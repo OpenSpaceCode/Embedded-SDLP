@@ -140,11 +140,11 @@ void sdlp_tm_unpack_data_field_status(uint16_t raw, sdlp_tm_data_field_status_t 
  * @param[in]  data_length        Data Field length (0..::TM_MAX_DATA_SIZE).
  * @return ::SDLP_SUCCESS, or ::SDLP_ERROR_INVALID_PARAM on NULL args or oversized data.
  */
-int sdlp_tm_create_frame(sdlp_tm_frame_t *frame,
-                         uint16_t spacecraft_id,
-                         uint8_t virtual_channel_id,
-                         const uint8_t *data,
-                         uint16_t data_length);
+sdlp_status_t sdlp_tm_create_frame(sdlp_tm_frame_t *frame,
+                                   uint16_t spacecraft_id,
+                                   uint8_t virtual_channel_id,
+                                   const uint8_t *data,
+                                   uint16_t data_length);
 
 /**
  * @brief Attach a Transfer Frame Secondary Header (CCSDS 132.0-B-3 §4.1.3).
@@ -157,7 +157,9 @@ int sdlp_tm_create_frame(sdlp_tm_frame_t *frame,
  * @param[in]  length Data Field length (1..::TM_SECONDARY_HEADER_MAX_DATA).
  * @return ::SDLP_SUCCESS, or ::SDLP_ERROR_INVALID_PARAM on NULL args or bad length.
  */
-int sdlp_tm_set_secondary_header(sdlp_tm_frame_t *frame, const uint8_t *data, uint8_t length);
+sdlp_status_t sdlp_tm_set_secondary_header(sdlp_tm_frame_t *frame,
+                                           const uint8_t *data,
+                                           uint8_t length);
 
 /**
  * @brief Attach a 4-octet Operational Control Field (CCSDS 132.0-B-3 §4.1.5).
@@ -170,7 +172,7 @@ int sdlp_tm_set_secondary_header(sdlp_tm_frame_t *frame, const uint8_t *data, ui
  * @param[in]  ocf   Four octets of OCF content (copied).
  * @return ::SDLP_SUCCESS, or ::SDLP_ERROR_INVALID_PARAM on NULL args.
  */
-int sdlp_tm_set_ocf(sdlp_tm_frame_t *frame, const uint8_t ocf[TM_OCF_SIZE]);
+sdlp_status_t sdlp_tm_set_ocf(sdlp_tm_frame_t *frame, const uint8_t ocf[TM_OCF_SIZE]);
 
 /**
  * @brief Serialise a TM Transfer Frame into a caller-supplied buffer.
@@ -184,10 +186,10 @@ int sdlp_tm_set_ocf(sdlp_tm_frame_t *frame, const uint8_t ocf[TM_OCF_SIZE]);
  * @param[out] encoded_size Bytes written on success.
  * @return ::SDLP_SUCCESS, ::SDLP_ERROR_INVALID_PARAM, or ::SDLP_ERROR_BUFFER_TOO_SMALL.
  */
-int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame,
-                         uint8_t *buffer,
-                         size_t buffer_size,
-                         size_t *encoded_size);
+sdlp_status_t sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame,
+                                   uint8_t *buffer,
+                                   size_t buffer_size,
+                                   size_t *encoded_size);
 
 /**
  * @brief Parse a wire-format TM Transfer Frame.
@@ -200,7 +202,9 @@ int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame,
  * @param[out] frame       Decoded frame.
  * @return ::SDLP_SUCCESS, ::SDLP_ERROR_INVALID_PARAM, or ::SDLP_ERROR_INVALID_FRAME.
  */
-int sdlp_tm_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tm_frame_t *frame);
+sdlp_status_t sdlp_tm_decode_frame(const uint8_t *buffer,
+                                   size_t buffer_size,
+                                   sdlp_tm_frame_t *frame);
 
 #ifdef __cplusplus
 }

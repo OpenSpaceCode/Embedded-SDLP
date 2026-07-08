@@ -17,7 +17,7 @@ int main(void)
     sdlp_tm_frame_t frame;
     uint8_t buffer[1500];
     size_t encoded_size;
-    int result;
+    sdlp_status_t result;
 
     printf("=== TM Frame Example ===\n\n");
 

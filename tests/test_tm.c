@@ -315,12 +315,11 @@ static int test_tm_null_params(void)
                   sdlp_tm_encode_frame(&frame, buffer, sizeof(buffer), NULL));
 
     /* decode rejects a NULL buffer, a NULL frame, and a buffer shorter than the header + FECF. */
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tm_decode_frame(NULL, sizeof(buffer), &decoded));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tm_decode_frame(buffer, sizeof(buffer), NULL));
     ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
-                  sdlp_tm_decode_frame(NULL, sizeof(buffer), &decoded));
-    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
-                  sdlp_tm_decode_frame(buffer, sizeof(buffer), NULL));
-    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
-                  sdlp_tm_decode_frame(buffer, TM_PRIMARY_HEADER_SIZE + TM_FRAME_ERROR_CONTROL_SIZE - 1,
+                  sdlp_tm_decode_frame(buffer,
+                                       TM_PRIMARY_HEADER_SIZE + TM_FRAME_ERROR_CONTROL_SIZE - 1,
                                        &decoded));
 
     return 0;
@@ -353,8 +352,8 @@ static int test_tm_decode_malformed(void)
     }
     /* Data Field larger than TM_MAX_DATA_SIZE. */
     {
-        static uint8_t big[TM_PRIMARY_HEADER_SIZE + TM_MAX_DATA_SIZE + 1 +
-                           TM_FRAME_ERROR_CONTROL_SIZE] = {0};
+        static uint8_t
+            big[TM_PRIMARY_HEADER_SIZE + TM_MAX_DATA_SIZE + 1 + TM_FRAME_ERROR_CONTROL_SIZE] = {0};
         ASSERT_EQ_INT(SDLP_ERROR_INVALID_FRAME, sdlp_tm_decode_frame(big, sizeof(big), &decoded));
     }
 

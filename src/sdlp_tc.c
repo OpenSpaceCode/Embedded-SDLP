@@ -31,12 +31,12 @@ static uint16_t tc_frame_length(const sdlp_tc_frame_t *frame)
     return (uint16_t)(frame_octets - 1u);
 }
 
-int sdlp_tc_create_frame(sdlp_tc_frame_t *frame,
-                         uint16_t spacecraft_id,
-                         uint8_t virtual_channel_id,
-                         uint8_t frame_seq_num,
-                         const uint8_t *data,
-                         uint16_t data_length)
+sdlp_status_t sdlp_tc_create_frame(sdlp_tc_frame_t *frame,
+                                   uint16_t spacecraft_id,
+                                   uint8_t virtual_channel_id,
+                                   uint8_t frame_seq_num,
+                                   const uint8_t *data,
+                                   uint16_t data_length)
 {
     /* A Type-D Frame Data Unit carries a Segment Header (when configured), which
      * consumes one octet of the Data Field budget (CCSDS 232.0-B-4, 4.1.3.2.1). */
@@ -70,7 +70,7 @@ int sdlp_tc_create_frame(sdlp_tc_frame_t *frame,
     return SDLP_SUCCESS;
 }
 
-int sdlp_tc_set_frame_type(sdlp_tc_frame_t *frame, sdlp_tc_frame_type_t type)
+sdlp_status_t sdlp_tc_set_frame_type(sdlp_tc_frame_t *frame, sdlp_tc_frame_type_t type)
 {
     if (!frame)
     {
@@ -102,20 +102,20 @@ int sdlp_tc_set_frame_type(sdlp_tc_frame_t *frame, sdlp_tc_frame_type_t type)
     return SDLP_SUCCESS;
 }
 
-int sdlp_tc_create_unlock_frame(sdlp_tc_frame_t *frame,
-                                uint16_t spacecraft_id,
-                                uint8_t virtual_channel_id)
+sdlp_status_t sdlp_tc_create_unlock_frame(sdlp_tc_frame_t *frame,
+                                          uint16_t spacecraft_id,
+                                          uint8_t virtual_channel_id)
 {
     const uint8_t cmd[TC_CONTROL_CMD_UNLOCK_LENGTH] = {TC_CONTROL_CMD_UNLOCK};
 
     /* COP does not use the Frame Sequence Number of Type-B frames; it is set to
      * 'all zeroes' (CCSDS 232.0-B-4, 4.1.2.8 note 3). */
-    int result = sdlp_tc_create_frame(frame,
-                                      spacecraft_id,
-                                      virtual_channel_id,
-                                      0,
-                                      cmd,
-                                      (uint16_t)sizeof(cmd));
+    sdlp_status_t result = sdlp_tc_create_frame(frame,
+                                                spacecraft_id,
+                                                virtual_channel_id,
+                                                0,
+                                                cmd,
+                                                (uint16_t)sizeof(cmd));
     if (result != SDLP_SUCCESS)
     {
         return result;
@@ -124,10 +124,10 @@ int sdlp_tc_create_unlock_frame(sdlp_tc_frame_t *frame,
     return sdlp_tc_set_frame_type(frame, SDLP_TC_FRAME_TYPE_BC);
 }
 
-int sdlp_tc_create_set_vr_frame(sdlp_tc_frame_t *frame,
-                                uint16_t spacecraft_id,
-                                uint8_t virtual_channel_id,
-                                uint8_t vr)
+sdlp_status_t sdlp_tc_create_set_vr_frame(sdlp_tc_frame_t *frame,
+                                          uint16_t spacecraft_id,
+                                          uint8_t virtual_channel_id,
+                                          uint8_t vr)
 {
     const uint8_t cmd[TC_CONTROL_CMD_SET_VR_LENGTH] = {TC_CONTROL_CMD_SET_VR_OCTET0,
                                                        TC_CONTROL_CMD_SET_VR_OCTET1,
@@ -135,12 +135,12 @@ int sdlp_tc_create_set_vr_frame(sdlp_tc_frame_t *frame,
 
     /* COP does not use the Frame Sequence Number of Type-B frames; it is set to
      * 'all zeroes' (CCSDS 232.0-B-4, 4.1.2.8 note 3). */
-    int result = sdlp_tc_create_frame(frame,
-                                      spacecraft_id,
-                                      virtual_channel_id,
-                                      0,
-                                      cmd,
-                                      (uint16_t)sizeof(cmd));
+    sdlp_status_t result = sdlp_tc_create_frame(frame,
+                                                spacecraft_id,
+                                                virtual_channel_id,
+                                                0,
+                                                cmd,
+                                                (uint16_t)sizeof(cmd));
     if (result != SDLP_SUCCESS)
     {
         return result;
@@ -149,10 +149,10 @@ int sdlp_tc_create_set_vr_frame(sdlp_tc_frame_t *frame,
     return sdlp_tc_set_frame_type(frame, SDLP_TC_FRAME_TYPE_BC);
 }
 
-int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame,
-                         uint8_t *buffer,
-                         size_t buffer_size,
-                         size_t *encoded_size)
+sdlp_status_t sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame,
+                                   uint8_t *buffer,
+                                   size_t buffer_size,
+                                   size_t *encoded_size)
 {
     if (!frame || !buffer || !encoded_size)
     {
@@ -212,7 +212,9 @@ int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame,
     return SDLP_SUCCESS;
 }
 
-int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tc_frame_t *frame)
+sdlp_status_t sdlp_tc_decode_frame(const uint8_t *buffer,
+                                   size_t buffer_size,
+                                   sdlp_tc_frame_t *frame)
 {
     if (!buffer || !frame || buffer_size < TC_PRIMARY_HEADER_SIZE + TC_FRAME_ERROR_CONTROL_SIZE)
     {
@@ -288,9 +290,9 @@ int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size, sdlp_tc_fram
 }
 
 #ifdef TC_SEGMENT_HEADER_ENABLED
-int sdlp_tc_set_segment_header(sdlp_tc_frame_t *frame,
-                               sdlp_tc_seq_flag_t sequence_flags,
-                               uint8_t map_id)
+sdlp_status_t sdlp_tc_set_segment_header(sdlp_tc_frame_t *frame,
+                                         sdlp_tc_seq_flag_t sequence_flags,
+                                         uint8_t map_id)
 {
     if (!frame)
     {
