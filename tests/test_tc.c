@@ -10,6 +10,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* The TC unit tests always exercise the segment-header configuration. */
+#ifndef TC_SEGMENT_HEADER_ENABLED
+#error "test_tc.c must be built with -DTC_SEGMENT_HEADER_ENABLED"
+#endif
+
 static int test_tc_create_frame_invalid_params(void)
 {
     sdlp_tc_frame_t frame;
@@ -31,6 +36,7 @@ static int test_tc_encode_decode_roundtrip(void)
     const uint8_t payload[] = {0x01u, 0x23u, 0x45u, 0x67u};
     uint8_t encoded[TC_PRIMARY_HEADER_SIZE + TC_MAX_DATA_SIZE + TC_FRAME_ERROR_CONTROL_SIZE];
     size_t encoded_size = 0;
+    const int seg = TC_SEGMENT_HEADER_SIZE; /* a Type-D frame carries a Segment Header */
 
     ASSERT_EQ_INT(
         SDLP_SUCCESS,
@@ -38,7 +44,7 @@ static int test_tc_encode_decode_roundtrip(void)
     ASSERT_EQ_INT(SDLP_SUCCESS,
                   sdlp_tc_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
 
-    ASSERT_EQ_INT(TC_PRIMARY_HEADER_SIZE + (int)sizeof(payload) + TC_FRAME_ERROR_CONTROL_SIZE,
+    ASSERT_EQ_INT(TC_PRIMARY_HEADER_SIZE + seg + (int)sizeof(payload) + TC_FRAME_ERROR_CONTROL_SIZE,
                   (int)encoded_size);
 
     ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_decode_frame(encoded, encoded_size, &decoded));
@@ -47,7 +53,8 @@ static int test_tc_encode_decode_roundtrip(void)
     ASSERT_EQ_INT((int)(0x7Fu & 0x3Fu), decoded.header.virtual_channel_id);
     ASSERT_EQ_INT(0x9Au, decoded.header.frame_sequence_number);
     /* Frame Length = total octets in the frame - 1 (CCSDS 232.0-B-4, 4.1.2.7.2). */
-    ASSERT_EQ_INT(TC_PRIMARY_HEADER_SIZE + (int)sizeof(payload) + TC_FRAME_ERROR_CONTROL_SIZE - 1,
+    ASSERT_EQ_INT(TC_PRIMARY_HEADER_SIZE + seg + (int)sizeof(payload) +
+                      TC_FRAME_ERROR_CONTROL_SIZE - 1,
                   decoded.header.frame_length);
     ASSERT_EQ_INT((int)sizeof(payload), decoded.data_length);
     ASSERT_EQ_MEM(payload, decoded.data, sizeof(payload));
@@ -270,13 +277,60 @@ static int test_tc_null_params(void)
                   sdlp_tc_encode_frame(&frame, buffer, sizeof(buffer), NULL));
 
     /* decode rejects a NULL buffer, a NULL frame, and a buffer shorter than the header + FECF. */
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tc_decode_frame(NULL, sizeof(buffer), &decoded));
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM, sdlp_tc_decode_frame(buffer, sizeof(buffer), NULL));
     ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
-                  sdlp_tc_decode_frame(NULL, sizeof(buffer), &decoded));
-    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
-                  sdlp_tc_decode_frame(buffer, sizeof(buffer), NULL));
-    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
-                  sdlp_tc_decode_frame(buffer, TC_PRIMARY_HEADER_SIZE + TC_FRAME_ERROR_CONTROL_SIZE - 1,
+                  sdlp_tc_decode_frame(buffer,
+                                       TC_PRIMARY_HEADER_SIZE + TC_FRAME_ERROR_CONTROL_SIZE - 1,
                                        &decoded));
+
+    return 0;
+}
+
+static int test_tc_segment_header_roundtrip(void)
+{
+    sdlp_tc_frame_t frame;
+    sdlp_tc_frame_t decoded;
+    const uint8_t payload[] = {0xC0u, 0xDEu};
+    uint8_t encoded[TC_PRIMARY_HEADER_SIZE + TC_SEGMENT_HEADER_SIZE + TC_MAX_DATA_SIZE +
+                    TC_FRAME_ERROR_CONTROL_SIZE];
+    size_t encoded_size = 0;
+
+    ASSERT_EQ_INT(
+        SDLP_SUCCESS,
+        sdlp_tc_create_frame(&frame, 0x2Au, 0x03u, 0x08u, payload, (uint16_t)sizeof(payload)));
+
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_PARAM,
+                  sdlp_tc_set_segment_header(NULL, TC_SEQ_FLAG_NO_SEG, 0));
+    ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_set_segment_header(&frame, TC_SEQ_FLAG_FIRST, 0x2Fu));
+    ASSERT_EQ_INT(TC_SEQ_FLAG_FIRST, frame.segment_header.sequence_flags);
+    ASSERT_EQ_INT(0x2Fu, frame.segment_header.map_id);
+
+    ASSERT_EQ_INT(SDLP_SUCCESS,
+                  sdlp_tc_encode_frame(&frame, encoded, sizeof(encoded), &encoded_size));
+    /* primary(5) + segment(1) + payload(2) + FECF(2) */
+    ASSERT_EQ_INT(TC_PRIMARY_HEADER_SIZE + TC_SEGMENT_HEADER_SIZE + (int)sizeof(payload) +
+                      TC_FRAME_ERROR_CONTROL_SIZE,
+                  (int)encoded_size);
+
+    ASSERT_EQ_INT(SDLP_SUCCESS, sdlp_tc_decode_frame(encoded, encoded_size, &decoded));
+    ASSERT_EQ_INT(TC_SEQ_FLAG_FIRST, decoded.segment_header.sequence_flags);
+    ASSERT_EQ_INT(0x2Fu, decoded.segment_header.map_id);
+    ASSERT_EQ_INT((int)sizeof(payload), decoded.data_length);
+    ASSERT_EQ_MEM(payload, decoded.data, sizeof(payload));
+
+    return 0;
+}
+
+static int test_tc_decode_segment_too_small(void)
+{
+    sdlp_tc_frame_t decoded;
+
+    /* Type-D frame (Control Command = 0) with Frame Length = 6 (buffer = 7 octets), which
+     * is too small to hold the 1-octet Segment Header plus the 2-octet FECF. */
+    uint8_t buf[7] = {0, 0, 0, 6};
+
+    ASSERT_EQ_INT(SDLP_ERROR_INVALID_FRAME, sdlp_tc_decode_frame(buf, sizeof(buf), &decoded));
 
     return 0;
 }
@@ -296,6 +350,8 @@ test_result_t test_tc_run_all(void)
     RUN_TEST(test_tc_unlock_command);
     RUN_TEST(test_tc_set_vr_command);
     RUN_TEST(test_tc_decode_reserved_frame_type);
+    RUN_TEST(test_tc_segment_header_roundtrip);
+    RUN_TEST(test_tc_decode_segment_too_small);
 
     /* cunit's counters have internal linkage, so this translation unit tallies
      * only its own tests. */

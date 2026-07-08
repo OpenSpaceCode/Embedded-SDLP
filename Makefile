@@ -42,8 +42,10 @@ unit-tests: $(TEST_BIN)
 $(BIN_DIR)/%: $(EXAMPLES_DIR)/%.c $(LIB) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $< $(LIB) -o $@ $(LDFLAGS)
 
-$(TEST_BIN): $(TEST_SRCS) $(LIB) | $(BIN_DIR)
-	$(CC) $(CFLAGS) $(TEST_SRCS) $(LIB) -o $@ $(LDFLAGS)
+# Compile the sources and tests together with TC_SEGMENT_HEADER_ENABLED so the
+# segment-header code paths are built and exercised.
+$(TEST_BIN): $(SRCS) $(TEST_SRCS) | $(BIN_DIR)
+	$(CC) $(CFLAGS) -DTC_SEGMENT_HEADER_ENABLED $(SRCS) $(TEST_SRCS) -o $@ $(LDFLAGS)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -62,5 +64,5 @@ coverage-html:
 	bash tools/coverage_html.sh
 
 test: unit-tests
-	@echo "Running unit tests..."
+	@echo "Running unit tests (TC_SEGMENT_HEADER_ENABLED)..."
 	@./$(TEST_BIN)
