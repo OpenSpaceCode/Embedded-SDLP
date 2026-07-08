@@ -11,10 +11,13 @@ Minimal, embedded-optimized implementation of **CCSDS Space Data Link Protocol (
 
 ### Core Protocol Implementation
 
-- **Telemetry (TM) Frame Handling**: Create, encode, and decode TM frames with CRC validation
-- **Telecommand (TC) Frame Handling**: Create, encode, and decode TC frames with CRC validation
-- **CRC16 Error Detection**: Built-in frame error control field (FECF) for data integrity
+- **Telemetry (TM) Frame Handling**: Create, encode, and decode TM frames
+- **Telecommand (TC) Frame Handling**: Create, encode, and decode TC frames
+- **Frame Error Control Field (FECF)**: 2-byte FECF carried verbatim in the wire format; computing/validating the value (e.g. CRC-16) is left to the application
 - **Configurable**: Support for virtual channels, spacecraft IDs, and frame sequence numbers
+- **TM Secondary Header**: Optional Transfer Frame Secondary Header (1–63 data octets) via `sdlp_tm_set_secondary_header`, signaled by the Secondary Header Flag and parsed automatically on decode
+- **TM Operational Control Field**: Optional 4-octet OCF carried verbatim via `sdlp_tm_set_ocf` (the caller decides whether to set the OCF Flag); its content, e.g. a CLCW, is mission-specific and left to the application
+- **TC Frame Types**: Type-AD/BD/BC frames via `sdlp_tc_set_frame_type`, plus Unlock and Set V(R) control-command helpers (`sdlp_tc_create_unlock_frame`, `sdlp_tc_create_set_vr_frame`)
 - **TC Segment Header**: Optional MAP-based segmentation support (enabled with `TC_SEGMENT_HEADER_ENABLED`)
 
 ### Design Principles
@@ -23,23 +26,30 @@ Minimal, embedded-optimized implementation of **CCSDS Space Data Link Protocol (
 - **Zero allocation**: Stack-based, no dynamic memory
 - **Embedded-optimized**: Pure C11, no external dependencies
 - **Portable**: Standard C11, big-endian network byte order
-- **Reliable**: CRC-16-CCITT frame error control
 
 ## Project Structure
 
 ```
 EmbeddedSDLP/
 ├── include/
-│   ├── sdlp_common.h    # Common definitions and CRC
+│   ├── sdlp_common.h    # Common definitions and error codes
 │   ├── sdlp_tm.h        # TM frame definitions
 │   └── sdlp_tc.h        # TC frame definitions
 ├── src/
-│   ├── sdlp_common.c    # CRC16 implementation
 │   ├── sdlp_tm.c        # TM frame implementation
 │   └── sdlp_tc.c        # TC frame implementation
 ├── examples/
+│   ├── example_crc.h    # CRC-16 helper used only by the examples
 │   ├── tm_example.c     # TM frame example
 │   └── tc_example.c     # TC frame example
+├── tests/
+│   ├── cunit.h          # Minimal unit-test assertion helpers
+│   ├── test_runners.h   # Per-module test runner interface
+│   ├── test_tm.c        # TM unit tests
+│   ├── test_tc.c        # TC unit tests
+│   └── unit_tests.c     # Test entry point (aggregates per-module results)
+├── tools/
+│   └── coverage_html.sh # Coverage (HTML) report generator
 ├── docs/
 │   ├── 132x0b3_TM_SDLP.pdf   # CCSDS 132.0-B-3 standard
 │   └── 232x0b4e1c1_TC_SDLP.pdf # CCSDS 232.0-B-4 standard
@@ -107,137 +117,26 @@ make clean      # Remove build artifacts
 
 ## Quick Start
 
-### Create and Send a TM Frame
-
-```c
-#include "sdlp_tm.h"
-
-uint8_t buffer[1500];
-size_t encoded_size;
-
-// Create a TM frame
-const char *data = "Temperature: 25C, Voltage: 3.3V";
-sdlp_tm_frame_t frame;
-sdlp_tm_create_frame(&frame, 0x123, 2, (uint8_t *)data, strlen(data));
-
-// Encode frame to buffer
-if (sdlp_tm_encode_frame(&frame, buffer, sizeof(buffer), &encoded_size) == SDLP_SUCCESS) {
-    printf("TM frame encoded: %zu bytes\n", encoded_size);
-}
-```
-
-### Parse an Incoming TM Frame
-
-```c
-sdlp_tm_frame_t decoded;
-if (sdlp_tm_decode_frame(buffer, encoded_size, &decoded) == SDLP_SUCCESS) {
-    printf("Spacecraft ID: 0x%03X, Data: %.*s\n",
-           decoded.header.spacecraft_id,
-           (int)decoded.data_length, decoded.data);
-}
-```
-
-### Create and Send a TC Frame
-
-```c
-#include "sdlp_tc.h"
-
-/* Telecommand identifiers */
-#define TC_CMD_SET_MODE_SAFE  0x01U
-
-uint8_t buffer[1500];
-size_t encoded_size;
-
-// Create a TC frame with a numeric command ID
-uint8_t cmd_id = TC_CMD_SET_MODE_SAFE;
-sdlp_tc_frame_t frame;
-sdlp_tc_create_frame(&frame, 0x123, 1, 42, &cmd_id, sizeof(cmd_id));
-
-// Encode frame to buffer
-if (sdlp_tc_encode_frame(&frame, buffer, sizeof(buffer), &encoded_size) == SDLP_SUCCESS) {
-    printf("TC frame encoded: %zu bytes\n", encoded_size);
-}
-```
-
-### Parse an Incoming TC Frame
-
-```c
-sdlp_tc_frame_t decoded;
-if (sdlp_tc_decode_frame(buffer, encoded_size, &decoded) == SDLP_SUCCESS) {
-    printf("Spacecraft ID: 0x%03X, Command ID: 0x%02X\n",
-           decoded.header.spacecraft_id,
-           decoded.data[0]);
-}
-```
-
-## API Reference
-
-### Common
-
-```c
-// Calculate CRC-16-CCITT checksum
-uint16_t sdlp_crc16(const uint8_t *data, size_t length);
-```
-
-### TM Functions
-
-```c
-// Create a TM frame with payload data
-int sdlp_tm_create_frame(sdlp_tm_frame_t *frame, uint16_t spacecraft_id,
-                          uint8_t virtual_channel_id, const uint8_t *data,
-                          uint16_t data_length);
-
-// Encode a TM frame into a byte buffer
-int sdlp_tm_encode_frame(const sdlp_tm_frame_t *frame, uint8_t *buffer,
-                          size_t buffer_size, size_t *encoded_size);
-
-// Decode a TM frame from a byte buffer (validates CRC)
-int sdlp_tm_decode_frame(const uint8_t *buffer, size_t buffer_size,
-                          sdlp_tm_frame_t *frame);
-```
-
-### TC Functions
-
-```c
-// Create a TC frame with command data
-int sdlp_tc_create_frame(sdlp_tc_frame_t *frame, uint16_t spacecraft_id,
-                          uint8_t virtual_channel_id, uint8_t frame_seq_num,
-                          const uint8_t *data, uint16_t data_length);
-
-// Encode a TC frame into a byte buffer
-int sdlp_tc_encode_frame(const sdlp_tc_frame_t *frame, uint8_t *buffer,
-                          size_t buffer_size, size_t *encoded_size);
-
-// Decode a TC frame from a byte buffer (validates CRC)
-int sdlp_tc_decode_frame(const uint8_t *buffer, size_t buffer_size,
-                          sdlp_tc_frame_t *frame);
-
-// Set TC segment header fields (requires TC_SEGMENT_HEADER_ENABLED)
-int sdlp_tc_set_segment_header(sdlp_tc_frame_t *frame,
-                                sdlp_tc_seq_flag_t sequence_flags, uint8_t map_id);
-```
-
-All functions return `SDLP_SUCCESS` (0) on success or a negative error code on failure:
-- `SDLP_ERROR_INVALID_PARAM` (-1): NULL pointer or invalid parameter
-- `SDLP_ERROR_BUFFER_TOO_SMALL` (-2): Output buffer too small
-- `SDLP_ERROR_INVALID_FRAME` (-3): Frame structure invalid
-- `SDLP_ERROR_CRC_MISMATCH` (-4): CRC validation failed
+Look at the examples/
 
 ## Memory Usage (Estimated)
 
 - **Library (stripped)**: < 5 KB
-- **Per TM frame buffer**: `TM_PRIMARY_HEADER_SIZE` (6) + data + 2 bytes FECF
-- **Per TC frame buffer**: `TC_PRIMARY_HEADER_SIZE` (5) + data + 2 bytes FECF
-- **Maximum data per frame**: 1024 bytes (`TM_MAX_DATA_SIZE` / `TC_MAX_DATA_SIZE`)
+- **Per TM frame buffer**: `TM_PRIMARY_HEADER_SIZE` (6) + optional secondary header (≤ 64) + data + optional OCF (4) + 2 bytes FECF
+- **Per TC frame buffer**: `TC_PRIMARY_HEADER_SIZE` (5) + optional segment header (1) + data + 2 bytes FECF
+- **Maximum data per frame**: `TM_MAX_DATA_SIZE` = 1024 bytes (TM); `TC_MAX_DATA_SIZE` = 1017 bytes (TC — the whole frame is capped at 1024 octets per CCSDS 232.0-B-4; one less when the TC segment header is enabled)
 
 ## Limitations and Extensions
 
 Current implementation focuses on core protocol features:
 
-- No automatic retransmission handling
+- No automatic retransmission handling (COP-1 FOP/FARM)
 - No flow control or bandwidth management
 - No segmentation beyond optional TC segment header
-- Single static frame counter (not thread-safe)
+- No SDLS (Space Data Link Security) option
+- No TM Only-Idle-Data (OID) frame generation or PN randomization
+- TM Transfer Frames are variable length; the mission-fixed frame length must be enforced by the caller
+- TM frame counts are kept per Master Channel / Virtual Channel in fixed static state (up to `TM_MAX_MASTER_CHANNELS` Master Channels; not thread-safe)
 
 These can be extended as needed for specific mission requirements.
 

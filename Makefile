@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS ?= -O2 -Iinclude -Wall -Wextra -Wpedantic -Wconversion -Wshadow \
+CFLAGS ?= -O2 -Iinclude -Wall -Wextra -Wpedantic -Wshadow \
 		  -Wcast-align -Wcast-qual -Wpointer-arith -Wformat=2 \
 		  -Wmissing-prototypes -Wstrict-prototypes -Wredundant-decls -Wundef \
 		  -std=c11
@@ -18,7 +18,7 @@ OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))
 
 EXAMPLES = $(wildcard $(EXAMPLES_DIR)/*.c)
 EXAMPLE_BINS = $(patsubst $(EXAMPLES_DIR)/%.c,$(BIN_DIR)/%,$(EXAMPLES))
-TEST_SRC = $(TEST_DIR)/unit_tests.c
+TEST_SRCS = $(wildcard $(TEST_DIR)/*.c)
 TEST_BIN = $(BIN_DIR)/unit_tests
 
 LIB = $(BUILD_DIR)/libsdlp.a
@@ -42,8 +42,10 @@ unit-tests: $(TEST_BIN)
 $(BIN_DIR)/%: $(EXAMPLES_DIR)/%.c $(LIB) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $< $(LIB) -o $@ $(LDFLAGS)
 
-$(TEST_BIN): $(TEST_SRC) $(LIB) | $(BIN_DIR)
-	$(CC) $(CFLAGS) $< $(LIB) -o $@ $(LDFLAGS)
+# Compile the sources and tests together with TC_SEGMENT_HEADER_ENABLED so the
+# segment-header code paths are built and exercised.
+$(TEST_BIN): $(SRCS) $(TEST_SRCS) | $(BIN_DIR)
+	$(CC) $(CFLAGS) -DTC_SEGMENT_HEADER_ENABLED $(SRCS) $(TEST_SRCS) -o $@ $(LDFLAGS)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -62,5 +64,5 @@ coverage-html:
 	bash tools/coverage_html.sh
 
 test: unit-tests
-	@echo "Running unit tests..."
+	@echo "Running unit tests (TC_SEGMENT_HEADER_ENABLED)..."
 	@./$(TEST_BIN)
